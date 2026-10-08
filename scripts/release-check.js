@@ -31,7 +31,7 @@ if (!semver.test(pkg.version)) {
   throw new Error(`Версия package.json должна быть в формате x.y.z, сейчас: ${pkg.version}`);
 }
 
-const tagName = process.env.GITHUB_REF_NAME || process.env.RELEASE_TAG;
+const tagName = process.env.RELEASE_TAG || (process.env.GITHUB_REF_TYPE === 'tag' ? process.env.GITHUB_REF_NAME : undefined);
 if (tagName) {
   const expected = tagName.startsWith('v') ? tagName.slice(1) : tagName;
   if (expected !== pkg.version) {
