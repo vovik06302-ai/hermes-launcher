@@ -10,3 +10,7 @@ dist-*/
 .env
 electron_log.txt
 *.backup
+
+make_shortcut.ps1
+check_lnk.ps1
+launch-hidden.vbs
