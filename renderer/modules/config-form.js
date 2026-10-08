@@ -64,7 +64,7 @@
     if (el('autoApprove')) el('autoApprove').checked = Boolean(state.cfg.autoApprove);
     if (el('disableUpdateCheck')) el('disableUpdateCheck').checked = Boolean(state.cfg.disableUpdateCheck);
 
-    if (root.HermesUI.dialogs) root.HermesUI.dialogs.applyTheme(state.cfg.theme);
+    if (root.HermesUI.themes) root.HermesUI.themes.applyTheme(state.cfg.theme);
     state.displayedProvider = state.cfg.provider;
 
     projectOptions();
