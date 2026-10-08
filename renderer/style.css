@@ -584,6 +584,10 @@ input[aria-invalid="true"] {
   margin: 0;
 }
 
+.terminal-top-row {
+  justify-content: space-between;
+}
+
 .terminal-box {
   flex: 1;
   height: 100%;

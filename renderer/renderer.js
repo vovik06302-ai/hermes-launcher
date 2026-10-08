@@ -259,6 +259,57 @@
       if (UI.terminal.term) UI.terminal.term.focus();
     }));
 
+    el('clearTermBtn')?.addEventListener('click', () => {
+      const instance = UI.terminal.activeTerm();
+      if (instance) {
+        instance.clear();
+        UI.notify.log('Терминал очищен.');
+      }
+    });
+
+    el('interruptTermBtn')?.addEventListener('click', () => {
+      const id = UI.state.activeTerminalId || 'default';
+      if (id === 'default') {
+        root.api?.sendTerminalData?.('\x03');
+      } else {
+        root.api?.sendTerminalDataFor?.(id, '\x03');
+      }
+      UI.notify.log('Отправлен сигнал прерывания (Ctrl+C).');
+    });
+
+    el('copyOutputBtn')?.addEventListener('click', async () => {
+      const instance = UI.terminal.activeTerm();
+      if (!instance) return;
+      let text = instance.hasSelection() ? instance.getSelection() : '';
+      if (!text && instance.buffer?.active) {
+        const buf = instance.buffer.active;
+        const lines = [];
+        for (let i = 0; i < buf.length; i++) {
+          const line = buf.getLine(i);
+          if (line) lines.push(line.translateToString(true));
+        }
+        while (lines.length > 0 && !lines[lines.length - 1].trim()) {
+          lines.pop();
+        }
+        text = lines.join('\n');
+      }
+      if (!text) {
+        UI.notify.log('В терминале нет текста для копирования.');
+        return;
+      }
+      try {
+        if (navigator.clipboard?.writeText) {
+          await navigator.clipboard.writeText(text);
+        } else {
+          await UI.call('writeClipboard', text);
+        }
+        UI.notify.log('Вывод терминала скопирован в буфер обмена.');
+      } catch (_) {
+        await UI.call('writeClipboard', text);
+        UI.notify.log('Вывод терминала скопирован в буфер обмена.');
+      }
+    });
+
     el('exportLogsBtn')?.addEventListener('click', () => {
       const logBox = el('logBox');
       const text = logBox ? Array.from(logBox.children, item => item.textContent).join('\n') : '';
