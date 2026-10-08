@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="ru" data-theme="aurora">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self' ws: wss: http: https:; img-src 'self' data:; object-src 'none'; base-uri 'none'">
+  <title>Hermes Launcher</title>
+  <meta name="description" content="Панель управления и запуска локальных и облачных LLM провайдеров для Hermes Agent">
+  <meta property="og:title" content="Hermes Launcher">
+  <meta property="og:description" content="Панель управления и запуска локальных и облачных LLM провайдеров для Hermes Agent">
+  <link rel="stylesheet" href="vendor/xterm.css">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<canvas id="bg-sphere" aria-hidden="true"></canvas>
+
+<div id="commandPalette" class="command-palette" hidden role="dialog" aria-modal="true" aria-label="Палитра команд">
+  <div class="command-box">
+    <input id="commandSearch" type="search" placeholder="Введите команду…" aria-label="Поиск команды">
+    <div id="commandList"></div>
+  </div>
+</div>
+
+<div id="promptDialog" class="prompt-dialog" hidden role="dialog" aria-modal="true" aria-labelledby="promptTitle">
+  <form id="promptForm" class="prompt-box">
+    <label id="promptTitle" for="promptInput">Введите значение</label>
+    <input id="promptInput" type="text" autocomplete="off">
+    <div class="row">
+      <button type="button" id="promptCancelBtn">Отмена</button>
+      <button type="submit" id="promptOkBtn" class="primary">ОК</button>
+    </div>
+  </form>
+</div>
+
+<div class="theme-fx" aria-hidden="true"><i></i><i></i><i></i></div>
+
+<header>
+  <div class="header-brand">
+    <h1>Hermes Launcher <small id="version"></small></h1>
+  </div>
+  <div class="header-actions">
+    <div class="theme-menu">
+      <button type="button" id="themeBtn" aria-expanded="false" aria-controls="themePicker" aria-haspopup="listbox">Тема: Сияние</button>
+      <div id="themePicker" class="theme-picker" hidden role="listbox" aria-label="Тема оформления">
+        <button type="button" class="theme-swatch" role="option" data-theme="aurora" aria-selected="true">Тёмная</button>
+        <button type="button" class="theme-swatch" role="option" data-theme="light" aria-selected="false">Светлая</button>
+        <button type="button" class="theme-swatch" role="option" data-theme="high-contrast" aria-selected="false">Высокий контраст</button>
+        <div class="theme-section-title">Дополнительные темы</div>
+        <button type="button" class="theme-swatch" role="option" data-theme="neon" aria-selected="false">Неон</button>
+        <button type="button" class="theme-swatch" role="option" data-theme="sunset" aria-selected="false">Закат</button>
+        <button type="button" class="theme-swatch" role="option" data-theme="ocean" aria-selected="false">Океан</button>
+        <button type="button" class="theme-swatch" role="option" data-theme="forest" aria-selected="false">Хвоя</button>
+        <button type="button" class="theme-swatch" role="option" data-theme="candy" aria-selected="false">Конфета</button>
+        <button type="button" class="theme-swatch" role="option" data-theme="ember" aria-selected="false">Лава</button>
+        <button type="button" class="theme-swatch" role="option" data-theme="amethyst" aria-selected="false">Аметист</button>
+      </div>
+    </div>
+    <button id="settingsBtn" type="button" aria-expanded="false" aria-controls="settings">Настройки</button>
+  </div>
+</header>
+
+<main id="appLayout">
+  <fieldset id="configuration">
+    <div class="app-columns">
+      
+      <!-- LEFT SIDEBAR -->
+      <aside id="sidebar" class="sidebar-panel">
+        
+        <!-- Primary Config Card -->
+        <div class="sidebar-card primary-card">
+          <div class="two-col">
+            <div class="field">
+              <label for="projectSelect">Сохранённый проект</label>
+              <select id="projectSelect"><option value="">Выберите проект</option></select>
+              
+              <label for="projectPath">Папка проекта</label>
+              <input id="projectPath" type="text" placeholder="Путь к папке проекта">
+              
+              <div class="row project-btn-row">
+                <button id="browseBtn" type="button">Обзор</button>
+                <button id="addProjectBtn" type="button">Запомнить</button>
+                <button id="removeProjectBtn" type="button">Убрать</button>
+              </div>
+            </div>
+
+            <div class="field">
+              <label for="provider">Провайдер</label>
+              <select id="provider">
+                <option value="ollama">Ollama</option>
+                <option value="lmstudio">LM Studio</option>
+                <option value="llamacpp">llama.cpp</option>
+                <option value="vllm">vLLM</option>
+                <option value="openai">OpenAI</option>
+                <option value="gemini">Google Gemini</option>
+                <option value="claude">Anthropic / Claude</option>
+                <option value="kilocode">Kilo Code</option>
+                <option value="llm">Другой локальный сервер</option>
+              </select>
+
+              <label for="model">Модель</label>
+              <div class="model-combobox">
+                <input type="text" id="model" placeholder="Введите имя модели">
+                <select id="modelPicker" aria-label="Выбрать установленную модель">
+                  <option value="">Выбрать из списка…</option>
+                </select>
+              </div>
+              <span id="modelHint" class="hint"></span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Hero Launch / Stop Actions (ALWAYS VISIBLE IN SIDEBAR) -->
+        <div class="sidebar-card hero-actions-card">
+          <div class="hero-btn-row">
+            <button id="launchBtn" class="primary hero-btn" disabled>Запустить</button>
+            <button id="killTermBtn" class="danger hero-btn" disabled>Остановить</button>
+          </div>
+          <div class="row secondary-actions-row">
+            <button id="retryBtn" type="button" disabled>Повторить запуск</button>
+            <button id="refreshModelsBtn" type="button">Обновить модели</button>
+          </div>
+        </div>
+
+        <!-- Collapsible Details Sections -->
+        <div class="sidebar-details-group">
+          
+          <details class="sidebar-details">
+            <summary>Системный промпт</summary>
+            <div class="details-content">
+              <section class="prompt-section">
+                <label for="systemPrompt">Постоянные правила для модели</label>
+                <textarea id="systemPrompt" rows="3" placeholder="Например: отвечай на русском, объясняй кратко…"></textarea>
+              </section>
+            </div>
+          </details>
+
+          <details class="sidebar-details">
+            <summary>Профили моделей и сравнение</summary>
+            <div class="details-content">
+              <div class="field">
+                <label for="modelProfilePicker">Профиль модели</label>
+                <select id="modelProfilePicker" aria-label="Профиль модели">
+                  <option value="">Профиль модели…</option>
+                </select>
+                <div class="row btn-group">
+                  <button id="saveModelProfileBtn" type="button">Сохранить профиль</button>
+                  <button id="compareModelsBtn" type="button">Сравнить модели</button>
+                  <button id="unloadBtn" type="button">Выгрузить модели</button>
+                </div>
+              </div>
+            </div>
+          </details>
+
+          <details class="sidebar-details">
+            <summary>API-ключи и параметры сети</summary>
+            <div class="details-content">
+              <div class="field">
+                <div class="api-key-row">
+                  <label for="apiKey">API-ключ провайдера</label>
+                  <input id="apiKey" type="password" autocomplete="off" placeholder="Не отображается и хранится защищённо">
+                  <div class="row btn-group">
+                    <button id="pasteApiKeyBtn" type="button">Вставить</button>
+                    <button id="saveApiKeyBtn" type="button">Сохранить</button>
+                    <button id="clearApiKeyBtn" type="button">Удалить</button>
+                  </div>
+                  <span id="apiKeyStatus" class="hint"></span>
+                </div>
+                <label for="apiBaseUrl">Базовый URL API (необязательно)</label>
+                <input type="text" id="apiBaseUrl" placeholder="Базовый URL API" autocomplete="off">
+              </div>
+            </div>
+          </details>
+
+          <!-- Settings panel (toggled by #settingsBtn or collapsible) -->
+          <section id="settings" class="settings-panel" hidden>
+            <h3>Настройки запуска и Hermes</h3>
+            <div class="two-col">
+              <div class="field">
+                <label for="maxTokens">Лимит токенов ответа</label>
+                <input type="number" id="maxTokens" min="1" max="2000000" required>
+              </div>
+              <div class="field">
+                <label for="contextLength">Контекст Ollama</label>
+                <input type="number" id="contextLength" min="64000" max="2000000" required>
+              </div>
+            </div>
+            <label class="check">
+              <input type="checkbox" id="autoApprove"> Автоматически подтверждать действия Hermes (--yolo)
+            </label>
+            <p class="hint">Перед запуском Hermes получает настройки автоматического сжатия контекста.</p>
+            <label for="hermesPath">Путь к Hermes (пусто — найти автоматически)</label>
+            <input id="hermesPath" type="text" placeholder="C:\…\hermes.exe">
+            <div class="two-col">
+              <div class="field">
+                <label for="lmstudioProvider">Имя провайдера LM Studio</label>
+                <input id="lmstudioProvider" type="text">
+              </div>
+              <div class="field">
+                <label for="localProvider">Имя другого локального провайдера</label>
+                <input id="localProvider" type="text">
+              </div>
+            </div>
+            <label for="localBaseUrl">Адрес API другого локального сервера</label>
+            <input id="localBaseUrl" type="text" placeholder="http://localhost:5000/v1">
+            <p class="hint">Учётные данные и локальные провайдеры настраиваются в Hermes.</p>
+            <label class="check">
+              <input id="disableUpdateCheck" type="checkbox"> Не проверять версию Hermes при открытии
+            </label>
+            <label class="check">
+              <input id="autostart-checkbox" type="checkbox"> Запускать при старте Windows
+            </label>
+            <div class="row actions">
+              <button id="saveBtn" type="button">Сохранить настройки</button>
+            </div>
+          </section>
+
+          <details class="sidebar-details">
+            <summary>Интеграция с GitHub</summary>
+            <div class="details-content">
+              <section class="github-panel" aria-labelledby="githubTitle">
+                <div class="row"><h2 id="githubTitle">GitHub</h2></div>
+                <div class="row btn-group">
+                  <button id="githubListBtn" type="button">Мои репозитории</button>
+                  <button id="githubCloneBtn" type="button">Загрузить</button>
+                  <button id="githubPullBtn" type="button">Получить</button>
+                  <button id="githubPushBtn" type="button" class="primary">Отправить</button>
+                </div>
+                <select id="githubRepoPicker" aria-label="Репозиторий GitHub">
+                  <option value="">Выберите репозиторий…</option>
+                </select>
+                <span id="githubStatus" class="hint" role="status">Использует авторизацию GitHub CLI.</span>
+              </section>
+            </div>
+          </details>
+
+          <details class="sidebar-details">
+            <summary>Управление локальными сервисами</summary>
+            <div class="details-content">
+              <div class="row actions process-actions">
+                <button id="start-all-btn" type="button">Запустить всё</button>
+                <button id="stop-all-btn" type="button" class="danger">Остановить всё</button>
+              </div>
+              <span id="processStatus" class="hint" role="status"></span>
+              
+              <section id="providers-panel" aria-labelledby="providers-title">
+                <div class="row">
+                  <h2 id="providers-title">Провайдеры LLM</h2>
+                  <span id="providers-panel-status" class="hint" role="status">Проверка портов…</span>
+                </div>
+                <div class="providers-list">
+                  <div class="provider-row" data-name="ollama">
+                    <strong>Ollama</strong>
+                    <span class="provider-status" role="status">Проверка…</span>
+                    <div class="provider-actions">
+                      <button type="button" class="start-btn">Старт</button>
+                      <button type="button" class="stop-btn danger">Стоп</button>
+                    </div>
+                    <span class="provider-feedback hint" role="status"></span>
+                  </div>
+                  <div class="provider-row" data-name="llamacpp">
+                    <strong>llama.cpp</strong>
+                    <span class="provider-status" role="status">Проверка…</span>
+                    <div class="provider-actions">
+                      <button type="button" class="start-btn">Старт</button>
+                      <button type="button" class="stop-btn danger">Стоп</button>
+                    </div>
+                    <span class="provider-feedback hint" role="status"></span>
+                  </div>
+                  <div class="provider-row" data-name="lmstudio">
+                    <strong>LM Studio</strong>
+                    <span class="provider-status" role="status">Проверка…</span>
+                    <div class="provider-actions">
+                      <button type="button" class="start-btn">Старт</button>
+                      <button type="button" class="stop-btn danger">Стоп</button>
+                    </div>
+                    <span class="provider-feedback hint" role="status"></span>
+                  </div>
+                  <div class="provider-row" data-name="vllm">
+                    <strong>vLLM</strong>
+                    <span class="provider-status" role="status">Проверка…</span>
+                    <div class="provider-actions">
+                      <button type="button" class="start-btn">Старт</button>
+                      <button type="button" class="stop-btn danger">Стоп</button>
+                    </div>
+                    <span class="provider-feedback hint" role="status"></span>
+                  </div>
+                </div>
+              </section>
+            </div>
+          </details>
+
+          <details class="sidebar-details">
+            <summary>Обновления и диагностика</summary>
+            <div class="details-content">
+              <div class="row actions">
+                <button id="diagnosticsBtn" type="button">Проверить окружение</button>
+              </div>
+              <span id="updateStatus" class="hint" role="status"></span>
+              <div class="two-col update-grid">
+                <div class="update-block">
+                  <h4>Hermes Agent</h4>
+                  <button id="update-agent-btn" type="button">Обновить агент</button>
+                  <div id="agent-update-log" class="hint" role="status"></div>
+                </div>
+                <div class="update-block">
+                  <h4>Hermes Launcher</h4>
+                  <button id="update-launcher-btn" type="button">Проверить обновление</button>
+                  <div id="launcher-update-log" class="hint" role="status"></div>
+                </div>
+              </div>
+              <div id="update-progress-container" class="update-progress" hidden>
+                <div id="update-progress-stage">Ожидание…</div>
+                <progress id="update-progress-bar" value="0" max="100"></progress>
+                <span id="update-progress-percent">0%</span>
+              </div>
+              <details id="versionDetails" hidden>
+                <summary>Диагностика проверки версии Hermes</summary>
+                <pre id="versionDiagnostic"></pre>
+              </details>
+            </div>
+          </details>
+
+        </div>
+
+        <!-- Sessions Section in Sidebar -->
+        <section class="sidebar-sessions">
+          <div class="row session-header-row">
+            <h2>Сессии</h2>
+            <div class="btn-group">
+              <button id="refreshSessionsBtn" type="button">Обновить</button>
+              <button id="exportSessionsBtn" type="button">Экспорт</button>
+            </div>
+          </div>
+          <div class="row session-filter-row">
+            <input id="sessionSearch" type="search" placeholder="Поиск сессий…" aria-label="Поиск сессий">
+            <select id="sessionSort" aria-label="Сортировка сессий">
+              <option value="updated">Сначала новые</option>
+              <option value="title">По названию</option>
+              <option value="id">По ID</option>
+            </select>
+          </div>
+          <div id="sessionsList" class="sessions-box" role="listbox" aria-label="Сессии"></div>
+          <div class="row session-action-row">
+            <button id="resumeBtn" class="primary" type="button" disabled>Продолжить</button>
+            <button id="deleteSessionBtn" class="danger" type="button" disabled>Удалить</button>
+            <button id="loadMoreSessionsBtn" type="button" hidden>Показать ещё</button>
+          </div>
+        </section>
+
+      </aside>
+
+      <!-- RIGHT MAIN WORKSPACE -->
+      <section id="workspace" class="workspace-panel">
+        
+        <!-- Terminal Header & Tabs -->
+        <div class="workspace-terminal-header">
+          <div class="row terminal-top-row">
+            <h2>Терминал</h2>
+            <div class="btn-group">
+              <button id="newTerminalBtn" type="button">Новая вкладка</button>
+              <button id="exportLogsBtn" type="button">Экспорт лога</button>
+            </div>
+          </div>
+          <div id="terminalTabs" class="terminal-tabs" role="tablist"></div>
+        </div>
+
+        <!-- Progress Panel -->
+        <div id="progressPanel" class="progress-panel" role="status">
+          <strong id="progressTitle">Готово к запуску</strong>
+          <span id="progressDetail">Выберите проект и модель, затем запустите сессию в терминале Hermes.</span>
+        </div>
+
+        <!-- Interactive Terminal Container -->
+        <div id="terminal" class="terminal-box"></div>
+
+        <!-- Workspace Status & Metrics Footer Bar -->
+        <div class="workspace-footer">
+          <div id="runtimeStatusBanner" class="runtime-status-banner" data-state="idle" role="status" aria-live="polite">
+            <span class="runtime-status-label">Статус:</span>
+            <strong id="runtimeStatusText">Проверка готовности…</strong>
+          </div>
+          
+          <div class="status-line" role="status">
+            <strong id="statusText">Инициализация…</strong>
+            <span id="currentModel"></span>
+            <span id="currentProvider"></span>
+            <span id="metricsLine" class="hint" role="status">Ресурсы: ожидание запуска</span>
+            <span id="gpu-status" class="hint" role="status">VRAM/RAM: проверка…</span>
+          </div>
+        </div>
+
+        <!-- Collapsible Event Log Box -->
+        <details class="workspace-logs">
+          <summary>Журнал событий</summary>
+          <div id="logBox" class="log-box" role="log" aria-live="polite"></div>
+        </details>
+
+      </section>
+
+    </div>
+  </fieldset>
+</main>
+
+<script src="vendor/xterm.js"></script>
+<script src="bg-sphere.js"></script>
+<script src="preload-web.js"></script>
+<script src="modules/state.js"></script>
+<script src="modules/api.js"></script>
+<script src="modules/notify.js"></script>
+<script src="modules/logic.js"></script>
+<script src="modules/themes.js"></script>
+<script src="modules/dialogs.js"></script>
+<script src="modules/config-form.js"></script>
+<script src="modules/sessions.js"></script>
+<script src="modules/providers-panel.js"></script>
+<script src="modules/github-panel.js"></script>
+<script src="modules/terminal.js"></script>
+<script src="renderer.js"></script>
+</body>
+</html>

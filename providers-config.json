@@ -1,0 +1,30 @@
+{
+  "providers": {
+    "ollama": {
+      "enabled": true,
+      "port": 11434,
+      "cwd": null,
+      "startCmd": null,
+      "note": "уже запущен как служба"
+    },
+    "llamacpp": {
+      "enabled": false,
+      "port": 8081,
+      "cwd": "C:\\Users\\User\\Desktop\\llama.cpp",
+      "startCmd": ["server.exe", "--port", "8081"]
+    },
+    "lmstudio": {
+      "enabled": false,
+      "port": 1234,
+      "cwd": null,
+      "startCmd": null,
+      "note": "запускается вручную через GUI LM Studio"
+    },
+    "vllm": {
+      "enabled": false,
+      "port": 8001,
+      "cwd": null,
+      "startCmd": ["vllm", "serve", "--port", "8001"]
+    }
+  }
+}

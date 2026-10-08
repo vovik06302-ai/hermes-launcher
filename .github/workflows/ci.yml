@@ -1,0 +1,40 @@
+name: CI
+on:
+  push:
+  pull_request:
+jobs:
+  verify:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Smoke test
+        run: npm run ci:smoke
+      - name: Verify release artifacts
+        run: node scripts/release-check.js
+      - name: Build directory bundle
+        run: npm run dist:dir
+      - name: Packaged smoke test
+        run: npm run test:packaged
+      - name: Upload dist artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: hermes-launcher-dist
+          path: dist/
+          if-no-files-found: warn
+      - name: Upload diagnostics artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: hermes-launcher-diagnostics
+          path: |
+            electron_log.txt
+            .hermes-state.json
+            dist/**
+          if-no-files-found: warn

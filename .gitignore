@@ -1,0 +1,12 @@
+node_modules/
+dist/
+dist-*/
+*.exe
+*.asar
+*.log
+.hermes-state.json
+.data/
+
+.env
+electron_log.txt
+*.backup

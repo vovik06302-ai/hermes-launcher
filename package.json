@@ -1,0 +1,99 @@
+{
+  "name": "hermes-launcher",
+  "version": "1.0.3",
+  "description": "GUI-панель запуска для Hermes Agent (по образцу панели OpenCode)",
+  "main": "main.js",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/vovik06302-ai/hermes-launcher.git"
+  },
+  "scripts": {
+    "build": "echo 'Build completed'",
+    "lint": "node -c server.js",
+    "dev": "node server.js",
+    "prestart": "node scripts/prepare-native.js",
+    "start": "node server.js",
+    "start:web": "node server.js",
+    "predist": "node scripts/prepare-native.js",
+    "dist": "electron-builder --win nsis",
+    "predist:portable": "node scripts/prepare-native.js",
+    "dist:portable": "electron-builder --win portable",
+    "test": "node --test tests/*.test.js",
+    "quality": "node scripts/quality-check.js && node --test tests/*.test.js",
+    "release:check": "node scripts/release-check.js",
+    "ci:smoke": "node scripts/quality-check.js && node --test tests/*.test.js",
+    "test:electron": "electron tests/electron-smoke.js",
+    "test:gui": "node test-launcher.spec.js",
+    "predist:dir": "node scripts/prepare-native.js",
+    "dist:dir": "electron-builder --win --dir",
+    "test:packaged": "electron tests/electron-smoke.js --packaged",
+    "test:packaged:final": "set HERMES_TEST_ROOT=dist-final/win-unpacked/resources/app.asar&& electron tests/electron-smoke.js --packaged"
+  },
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "electron-updater": "^6.8.9",
+    "express": "^5.2.1",
+    "node-pty": "^1.1.0",
+    "ws": "^8.22.0",
+    "xterm": "^5.3.0"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.63.0",
+    "electron": "^31.0.0",
+    "electron-builder": "^24.13.3",
+    "playwright": "^1.63.0"
+  },
+  "build": {
+    "appId": "com.local.hermes-launcher",
+    "productName": "Hermes Launcher",
+    "artifactName": "Hermes-Launcher-Setup-${version}.exe",
+    "publish": {
+      "provider": "github",
+      "owner": "vovik06302-ai",
+      "repo": "hermes-launcher"
+    },
+    "asarUnpack": [
+      "**/node_modules/node-pty/**"
+    ],
+    "win": {
+      "target": "nsis",
+      "signAndEditExecutable": false,
+      "icon": "hermes.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Hermes Launcher",
+      "uninstallDisplayName": "Hermes Launcher",
+      "artifactName": "Hermes-Launcher-Setup-${version}.exe"
+    },
+    "files": [
+      "main.js",
+      "state-manager.js",
+      "preload.js",
+      "lib/process-manager.js",
+      "lib/provider-manager.js",
+      "lib/**/*",
+      "renderer/index.html",
+      "renderer/renderer.js",
+      "renderer/modules/**/*",
+      "renderer/bg-sphere.js",
+      "renderer/preload-web.js",
+      "renderer/style.css",
+      "renderer/vendor/**/*",
+      "hermes.ico",
+      "providers-config.json",
+      "package.json"
+    ],
+    "npmRebuild": false,
+    "electronDist": "node_modules/electron/dist"
+  },
+  "allowScripts": {
+    "electron@31.7.7": true,
+    "node-pty@1.1.0": true
+  }
+}

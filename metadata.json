@@ -1,0 +1,5 @@
+{
+  "name": "Hermes Launcher",
+  "description": "Панель управления и запуска локальных и облачных LLM провайдеров для Hermes Agent",
+  "capabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

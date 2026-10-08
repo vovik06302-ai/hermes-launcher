@@ -1,0 +1,9 @@
+model:
+  default: "qwen35b-limited-64k:latest"
+  provider: "ollama"
+  context_length: 65536
+  ollama_num_ctx: 65536
+auxiliary:
+  compression:
+    model: "qwen35b-limited-64k:latest"
+    context_length: 65536
