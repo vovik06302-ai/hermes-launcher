@@ -218,7 +218,14 @@
     const state = root.HermesUI.state || {};
     const active = ['starting', 'running', 'stopping'].includes(state.processState);
 
-    if (el('configuration')) el('configuration').disabled = state.busy || active || !state.cfg;
+    if (el('configuration')) {
+      el('configuration').disabled = false;
+      for (const control of el('configuration').querySelectorAll('input, select, textarea')) {
+        if (!control.closest('#workspace')) {
+          control.disabled = state.busy || active || !state.cfg;
+        }
+      }
+    }
     if (el('launchBtn')) el('launchBtn').disabled = state.busy || active || !state.cfg;
     if (el('retryBtn')) el('retryBtn').disabled = state.busy || active || !state.lastLaunchConfig;
     if (el('killTermBtn')) el('killTermBtn').disabled = state.processState !== 'running';
