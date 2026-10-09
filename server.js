@@ -22,15 +22,31 @@ const { createSessionServices } = require('./lib/session-services');
 const { createUpdater } = require('./lib/updater');
 const github = require('./lib/github');
 
-const WEB_TOKEN = process.env.HERMES_WEB_TOKEN || crypto.randomBytes(16).toString('hex');
+const userDataDir = path.join(process.cwd(), '.data');
+fs.mkdirSync(userDataDir, { recursive: true });
+
+function getOrCreateWebToken() {
+  if (process.env.HERMES_WEB_TOKEN) return process.env.HERMES_WEB_TOKEN;
+  const tokenFile = path.join(userDataDir, '.web-token');
+  try {
+    if (fs.existsSync(tokenFile)) {
+      const existing = fs.readFileSync(tokenFile, 'utf8').trim();
+      if (existing) return existing;
+    }
+    const generated = crypto.randomBytes(16).toString('hex');
+    fs.writeFileSync(tokenFile, generated, 'utf8');
+    return generated;
+  } catch (_) {
+    return crypto.randomBytes(16).toString('hex');
+  }
+}
+
+const WEB_TOKEN = getOrCreateWebToken();
 const HOST = process.env.HERMES_WEB_HOST || '0.0.0.0';
 
 const app = express();
 const server = http.createServer(app);
 const wss = new WebSocketServer({ noServer: true });
-
-const userDataDir = path.join(process.cwd(), '.data');
-fs.mkdirSync(userDataDir, { recursive: true });
 
 const mockApp = {
   getVersion: () => '1.0.2',
@@ -241,6 +257,7 @@ app.get(['/', '/index.html'], (req, res) => {
     let html = fs.readFileSync(filePath, 'utf8');
     const tokenScript = `<script>window.__HERMES_TOKEN__ = ${JSON.stringify(WEB_TOKEN)};</script>`;
     html = html.replace('</head>', `${tokenScript}\n</head>`);
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
     res.send(html);
   } catch (e) {
     res.status(500).send('Ошибка загрузки страницы');
@@ -326,7 +343,7 @@ wss.on('connection', ws => {
   });
 });
 
-const PORT = process.env.PORT || 3000;
+const PORT = 3000;
 
 server.listen(PORT, HOST, () => {
   console.log(`Hermes Web Token: ${WEB_TOKEN}`);
