@@ -6,7 +6,8 @@ const {
   filterAndSortSessions,
   collectConfigFromForm,
   applyProjectProfile,
-  formatLaunchStatus
+  formatLaunchStatus,
+  formatAppVersion
 } = require('../renderer/modules/logic');
 
 test('filterAndSortSessions фильтрует по заголовку и ID и сортирует по дате/названию', () => {
@@ -83,3 +84,13 @@ test('formatLaunchStatus возвращает корректный текст и
     state: 'idle'
   });
 });
+
+test('formatAppVersion корректно форматирует версию в формат v1.0.3 для шапки', () => {
+  assert.equal(formatAppVersion('1.0.3'), 'v1.0.3');
+  assert.equal(formatAppVersion('v1.0.3'), 'v1.0.3');
+  assert.equal(formatAppVersion(' 1.0.3 '), 'v1.0.3');
+  assert.equal(formatAppVersion(''), '');
+  assert.equal(formatAppVersion(null), '');
+  assert.equal(formatAppVersion(undefined), '');
+});
+

@@ -5,6 +5,7 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 const root = process.env.HERMES_TEST_ROOT || (process.argv.includes('--packaged') ? path.join(__dirname, '..', 'dist', 'win-unpacked', 'resources', 'app.asar') : path.join(__dirname, '..'));
+const pkg = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8'));
 const { normalize } = require(path.join(root, 'lib', 'config'));
 const temporary = fs.mkdtempSync(path.join(os.tmpdir(), 'hermes-electron-test-'));
 app.setPath('userData', temporary);
@@ -17,7 +18,7 @@ const terminalIds = new Set(['default']);
 const errors = [];
 const handlers = {
   'hermes:version': () => ({ output: 'Hermes Agent v0.2.1', diagnostic: 'Exception in thread\nUnicodeDecodeError: utf-8', warning: true }),
-  'config:get': () => ({ config: saved, version: 'test' }),
+  'config:get': () => ({ config: saved, version: pkg.version }),
   'config:save': cfg => { saved = normalize(cfg); return { config: saved }; },
   'providers:list': () => ({ providers: [] }),
   'get-providers-status': () => ({ providers: {} }),
@@ -47,6 +48,7 @@ app.whenReady().then(async () => {
     window.webContents.on('console-message', (_event, level, message) => { if (level >= 3) errors.push(message); });
     await window.loadFile(path.join(root, 'renderer', 'index.html'));
     await until("document.querySelector('.session-item') && !document.getElementById('launchBtn').disabled");
+    assert.equal(await evaluate("document.getElementById('version').textContent"), 'v' + pkg.version);
     assert.equal(listedProvider, 'lmstudio');
     assert.equal(await evaluate("document.getElementById('model').value"), 'local-model:35b');
     assert.equal(await evaluate("document.getElementById('statusText').textContent"), 'Готов');

@@ -80,11 +80,18 @@
     return { text: 'Готово к запуску. Проверка окружения поможет быстро найти проблемы.', state: 'idle' };
   }
 
+  function formatAppVersion(version) {
+    if (!version || (typeof version !== 'string' && typeof version !== 'number')) return '';
+    const clean = String(version).trim().replace(/^v/i, '');
+    return clean ? `v${clean}` : '';
+  }
+
   const logic = {
     filterAndSortSessions,
     collectConfigFromForm,
     applyProjectProfile,
-    formatLaunchStatus
+    formatLaunchStatus,
+    formatAppVersion
   };
 
   root.HermesUI.logic = logic;

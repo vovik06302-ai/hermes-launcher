@@ -536,7 +536,10 @@
       UI.state.cfg.providerModels = { ...(UI.state.cfg.providerModels || {}), [UI.state.cfg.provider]: UI.state.cfg.model };
 
       if (el('version')) {
-        el('version').textContent = (result.version && result.version !== 'test') ? `v${result.version.replace(/^v/, '')}` : 'v1.0.3';
+        const formatted = (UI.logic && typeof UI.logic.formatAppVersion === 'function')
+          ? UI.logic.formatAppVersion(result.version)
+          : (result.version ? `v${String(result.version).trim().replace(/^v/i, '')}` : '');
+        el('version').textContent = formatted;
       }
 
       const isWeb = location.protocol === 'http:' || location.protocol === 'https:';

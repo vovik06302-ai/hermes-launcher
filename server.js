@@ -43,13 +43,20 @@ function getOrCreateWebToken() {
 
 const WEB_TOKEN = getOrCreateWebToken();
 const HOST = process.env.HERMES_WEB_HOST || '0.0.0.0';
+const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
 
 const app = express();
 const server = http.createServer(app);
 const wss = new WebSocketServer({ noServer: true });
 
+let appVersion = '1.0.3';
+try {
+  appVersion = require('./package.json').version;
+} catch (_) {}
+
 const mockApp = {
-  getVersion: () => '1.0.2',
+  getVersion: () => appVersion,
+  getAppPath: () => __dirname,
   getPath: (name) => userDataDir,
   getLoginItemSettings: () => ({ openAtLogin: false }),
   setLoginItemSettings: () => {}
@@ -251,12 +258,28 @@ ipcMain.on('terminal:resize-for', (event, id, cols, rows) => { try { terminalFor
 
 app.use(express.json({ limit: '10mb' }));
 
+function extractToken(req) {
+  if (req.headers['x-hermes-token']) return req.headers['x-hermes-token'];
+  if (req.query?.token) return req.query.token;
+  if (req.body?.token) return req.body.token;
+  if (req.headers.authorization) {
+    const parts = req.headers.authorization.split(' ');
+    if (parts.length > 1) return parts[1];
+  }
+  if (req.headers.cookie) {
+    const match = req.headers.cookie.match(/(?:^|;\s*)hermes_token=([^;]+)/);
+    if (match) return decodeURIComponent(match[1]);
+  }
+  return null;
+}
+
 app.get(['/', '/index.html'], (req, res) => {
   const filePath = path.join(__dirname, 'renderer', 'index.html');
   try {
     let html = fs.readFileSync(filePath, 'utf8');
     const tokenScript = `<script>window.__HERMES_TOKEN__ = ${JSON.stringify(WEB_TOKEN)};</script>`;
     html = html.replace('</head>', `${tokenScript}\n</head>`);
+    res.setHeader('Set-Cookie', `hermes_token=${WEB_TOKEN}; Path=/; SameSite=Lax`);
     res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
     res.send(html);
   } catch (e) {
@@ -272,7 +295,7 @@ app.post('/api/invoke', async (req, res) => {
     return res.status(403).json({ ok: false, error: 'Запрещено: недопустимый Origin' });
   }
 
-  const token = req.headers['x-hermes-token'] || req.query?.token || req.body?.token || (req.headers.authorization && req.headers.authorization.split(' ')[1]);
+  const token = extractToken(req);
   if (!token || token !== WEB_TOKEN) {
     return res.status(401).json({ ok: false, error: 'Неавторизован: неверный или отсутствует токен' });
   }
@@ -302,7 +325,9 @@ server.on('upgrade', (request, socket, head) => {
 
   const hostHeader = request.headers.host || 'localhost';
   const url = new URL(request.url, `http://${hostHeader}`);
-  const token = url.searchParams.get('token') || request.headers['x-hermes-token'];
+  const cookieHeader = request.headers.cookie;
+  const cookieToken = cookieHeader ? (cookieHeader.match(/(?:^|;\s*)hermes_token=([^;]+)/) || [])[1] : null;
+  const token = url.searchParams.get('token') || request.headers['x-hermes-token'] || cookieToken;
   if (!token || token !== WEB_TOKEN) {
     socket.write('HTTP/1.1 401 Unauthorized\r\n\r\n');
     socket.destroy();
@@ -342,8 +367,6 @@ wss.on('connection', ws => {
     connectedWs.delete(ws);
   });
 });
-
-const PORT = 3000;
 
 server.listen(PORT, HOST, () => {
   console.log(`Hermes Web Token: ${WEB_TOKEN}`);

@@ -300,3 +300,69 @@ test('миграция переносит пользовательские да�
     fs.rmSync(tempDir, { recursive: true, force: true });
   }
 });
+
+test('версия приложения читается из package.json и передается через IPC config:get (включая установленную сборку)', async () => {
+  const root = path.join(__dirname, '..');
+  const pkg = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8'));
+  const { getAppVersion, registerIpcHandlers } = require('../lib/app-ipc');
+
+  // Проверка прямого чтения из package.json
+  const defaultVersion = getAppVersion();
+  assert.equal(defaultVersion, pkg.version);
+
+  // Проверка поведения при установленной сборке через app.getAppPath()
+  const mockPackagedApp = {
+    isPackaged: true,
+    getAppPath: () => root,
+    getVersion: () => 'fallback-should-not-be-used'
+  };
+  const packagedVersion = getAppVersion(mockPackagedApp);
+  assert.equal(packagedVersion, pkg.version);
+
+  // Проверка через вызов IPC-обработчика config:get
+  const handlers = new Map();
+  const mockIpcMain = {
+    handle(channel, fn) { handlers.set(channel, fn); },
+    on() {}
+  };
+  const mockWin = {
+    webContents: { getURL: () => 'app://hermes' },
+    isDestroyed: () => false
+  };
+  const mockStore = { load: () => ({ model: 'test' }) };
+
+  registerIpcHandlers({
+    ipcMain: mockIpcMain,
+    app: mockPackagedApp,
+    dialog: {},
+    clipboard: {},
+    logger: { error() {} },
+    store: mockStore,
+    apiKeys: { get: () => null },
+    providerRegistry: { get: () => null },
+    processManager: {},
+    providerManager: {},
+    terminalPool: { get: () => null },
+    terminal: { state: 'idle' },
+    modelCache: new Map(),
+    comparisonQueue: {},
+    updateManager: {},
+    github: {},
+    winRef: () => mockWin,
+    providerConfig: {},
+    sessionServices: {},
+    updater: {}
+  });
+
+  const trustedEvent = {
+    sender: mockWin.webContents,
+    senderFrame: { url: 'app://hermes' }
+  };
+
+  const configHandler = handlers.get('config:get');
+  assert.ok(typeof configHandler === 'function', 'Обработчик config:get должен быть зарегистрирован');
+  const response = await configHandler(trustedEvent);
+  assert.equal(response.ok, true);
+  assert.equal(response.version, pkg.version);
+});
+
