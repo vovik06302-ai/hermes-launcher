@@ -159,7 +159,7 @@ const comparisonQueue = new TaskQueue(4);
 
 let lastCpuUsage = process.cpuUsage();
 let lastCpuTime = process.hrtime.bigint();
-let updating = false;
+
 
 const hermesRuntime = createHermesRuntime({ apiKeys, logger, winRef: () => mockWin });
 const { terminal, terminalPool, terminalFor } = hermesRuntime;
@@ -215,7 +215,7 @@ handle('metrics:get', () => {
 });
 
 async function start(input, sessionId, terminalId = 'default') {
-  return hermesRuntime.start(input, sessionId, terminalId, () => updating);
+  return hermesRuntime.start(input, sessionId, terminalId, () => services.appState.updating);
 }
 
 handle('hermes:launch', (input, terminalId) => start(input, null, terminalId));
@@ -228,13 +228,13 @@ handle('hermes:version', async input => {
   return summarizeVersion(result);
 });
 handle('hermes:update', async input => {
-  if (updating || ['starting', 'running', 'stopping'].includes(terminal.state)) throw new Error('Сначала завершите текущую операцию.');
-  updating = true;
+  if (services.appState.updating || ['starting', 'running', 'stopping'].includes(terminal.state)) throw new Error('Сначала завершите текущую операцию.');
+  services.appState.updating = true;
   try {
     const result = await run(await resolveHermes(normalize(input)), ['update', '--force-venv'], 300000);
     if (!result.ok) throw new Error(result.error);
     return { output: result.output };
-  } finally { updating = false; }
+  } finally { services.appState.updating = false; }
 });
 handle('terminal:state', () => ({ state: terminal.state }));
 handle('terminal:sessions', () => ({ sessions: [...terminalPool.terminals].map(([id, item]) => ({ id, state: item.state, pid: item.process?.pid || null })) }));
