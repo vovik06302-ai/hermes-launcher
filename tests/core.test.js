@@ -366,3 +366,82 @@ test('версия приложения читается из package.json и п
   assert.equal(response.version, pkg.version);
 });
 
+test('контракт обновления лаунчера: версия и URL передаются в правильном порядке (regression)', async () => {
+  const path = require('path');
+  const root = path.join(__dirname, '..');
+  const { createAppServices } = require('../lib/services');
+  const { registerIpcHandlers } = require('../lib/app-ipc');
+
+  const seen = [];
+  const mockApp = { isPackaged: false, getAppPath: () => root };
+  const services = createAppServices({
+    app: mockApp,
+    // createProviderManager валидирует конфиг — пустой объект без секции providers недопустим.
+    providerConfig: { providers: {} },
+    processStateFile: '/tmp/hermes-test-state.json',
+    logger: { error() {} }
+  });
+
+  // Подменяем только сетевой слой — контрактная цепочка аргументов остаётся настоящей.
+  // checkLauncherUpdate вызывает fetchManifest через exports модуля, поэтому подменяем метод на объекте модуля.
+  const launcherUpdate = require('../lib/launcher-update');
+  const originalFetchManifest = launcherUpdate.fetchManifest;
+  launcherUpdate.fetchManifest = async url => {
+    seen.push(url);
+    return { version: '99.0.0', url: 'https://example.invalid/setup.exe', notes: '' };
+  };
+
+  try {
+    const handlers = new Map();
+    const mockWin = { webContents: { getURL: () => 'app://hermes' }, isDestroyed: () => false };
+    registerIpcHandlers({
+      ipcMain: { handle: (channel, fn) => handlers.set(channel, fn), on() {} },
+      app: mockApp,
+      dialog: {},
+      clipboard: {},
+      logger: { error() {} },
+      store: { load: () => ({}) },
+      apiKeys: { get: () => null },
+      providerRegistry: { get: () => null },
+      processManager: {},
+      providerManager: {},
+      terminalPool: { get: () => null },
+      terminal: { state: 'idle' },
+      modelCache: new Map(),
+      comparisonQueue: {},
+      updateManager: { check: (version, url) => services.updateLauncher(url, version) },
+      github: {},
+      winRef: () => mockWin,
+      providerConfig: {},
+      sessionServices: {},
+      updater: {}
+    });
+
+    const trustedEvent = { sender: mockWin.webContents, senderFrame: { url: 'app://hermes' } };
+    const manifestUrl = 'https://raw.githubusercontent.com/vovik06302-ai/hermes-launcher/main/metadata.json';
+
+    // Позитивный путь: URL доходит до fetchManifest как URL, а не как версия.
+    const ok = await handlers.get('launcher:updateCheck')(trustedEvent, manifestUrl);
+    assert.equal(ok.ok, true, `Проверка обновлений не должна падать: ${JSON.stringify(ok)}`);
+    assert.deepEqual(seen, [manifestUrl], 'fetchManifest должен получить URL манифеста первым аргументом');
+    // buildSuccessResult раскрывает поля результата на верхний уровень IPC-ответа.
+    assert.equal(ok.available, true, `Неверная форма ответа: ${JSON.stringify(ok)}`);
+    assert.equal(ok.version, '99.0.0');
+
+    // Негативный путь: не-HTTPS отклоняется на уровне IPC-валидации.
+    seen.length = 0;
+    const http = await handlers.get('launcher:updateCheck')(trustedEvent, 'http://raw.githubusercontent.com/x/manifest.json');
+    assert.equal(http.ok, false, 'HTTP-манифест должен отклоняться.');
+    assert.deepEqual(seen, [], 'Сетевой запрос при некорректном протоколе выполняться не должен.');
+
+    // Резервный адрес: вызов без явного URL использует DEFAULT_MANIFEST_URL (main.js автопроверка).
+    seen.length = 0;
+    const fallback = await services.updateLauncher(undefined, '1.0.0');
+    assert.equal(fallback.available, true);
+    assert.deepEqual(seen, ['https://raw.githubusercontent.com/vovik06302-ai/hermes-launcher/main/metadata.json'],
+      'Без явного URL должен подставляться резервный адрес манифеста.');
+  } finally {
+    launcherUpdate.fetchManifest = originalFetchManifest;
+  }
+});
+
