@@ -9,7 +9,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: npm
       - name: Install dependencies
         run: npm ci
@@ -27,14 +27,14 @@ jobs:
         with:
           name: hermes-launcher-dist
           path: dist/
-          if-no-files-found: warn
+          if-no-files-found: ignore
       - name: Upload diagnostics artifact
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: hermes-launcher-diagnostics
           path: |
-            electron_log.txt
-            .hermes-state.json
+            %APPDATA%\hermes-launcher\hermes-launcher.log
+            %APPDATA%\hermes-launcher\.hermes-state.json
             dist/**
-          if-no-files-found: warn
+          if-no-files-found: ignore
