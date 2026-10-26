@@ -21,9 +21,6 @@ const { createUpdater } = require('./lib/updater');
 const github = require('./lib/github');
 let win;
 let tray = null;
-app.isQuitting = false;
-app.on('before-quit', () => { app.isQuitting = true; });
-let updating = false;
 const userDataDir = app.getPath('userData');
 const logger = createLogger(userDataDir);
 migratePortableData(userDataDir, logger);
@@ -38,11 +35,20 @@ const publishConfig = {
 };
 const updater = createUpdater({ app, processManager, logger, winRef: () => win, publishConfig });
 const services = createAppServices({ app, providerConfig: require('./providers-config.json'), processStateFile, logger });
+// Единый источник состояния quit/update: флаги живут в services.appState,
+// а app.isQuitting — геттер поверх него, чтобы значения не могли разъехаться.
+Object.defineProperty(app, 'isQuitting', {
+  get: () => services.appState.isQuitting,
+  set: value => { services.appState.isQuitting = Boolean(value); },
+  configurable: true
+});
+app.on('before-quit', () => { services.appState.isQuitting = true; });
 const providerManager = services.providerManager;
 const providerRegistry = new ProviderRegistry(path.join(app.getPath('userData'), 'plugins', 'providers'));
 const comparisonQueue = new TaskQueue(4);
 let lastCpuUsage = process.cpuUsage();
 let lastCpuTime = process.hrtime.bigint();
+// updating — единственный мутатор: services.appState.updating (см. hermes:update ниже)
 const page = pathToFileURL(path.join(__dirname, 'renderer', 'index.html')).href;
 const hermesRuntime = createHermesRuntime({ apiKeys, logger, winRef: () => win });
 const { terminal, terminalPool, terminalFor } = hermesRuntime;
@@ -117,7 +123,7 @@ handle('metrics:get', () => {
   return { cpu, memoryMb: Math.round(process.memoryUsage().rss / 1024 / 1024) };
 });
 async function start(input, sessionId, terminalId = 'default') {
-  return hermesRuntime.start(input, sessionId, terminalId, () => updating);
+  return hermesRuntime.start(input, sessionId, terminalId, () => services.appState.updating);
 }
 handle('hermes:launch', (input, terminalId) => start(input, null, terminalId));
 handle('hermes:resume', (input, id, terminalId) => start(input, id, terminalId));
@@ -129,13 +135,13 @@ handle('hermes:version', async input => {
   return summarizeVersion(result);
 });
 handle('hermes:update', async input => {
-  if (updating || ['starting', 'running', 'stopping'].includes(terminal.state)) throw new Error('Сначала завершите текущую операцию.');
-  updating = true;
+  if (services.appState.updating || ['starting', 'running', 'stopping'].includes(terminal.state)) throw new Error('Сначала завершите текущую операцию.');
+  services.appState.updating = true;
   try {
     const result = await run(await resolveHermes(normalize(input)), ['update', '--force-venv'], 300000);
     if (!result.ok) throw new Error(result.error);
     return { output: result.output };
-  } finally { updating = false; }
+  } finally { services.appState.updating = false; }
 });
 handle('terminal:state', () => ({ state: terminal.state }));
 handle('terminal:sessions', () => ({ sessions: [...terminalPool.terminals].map(([id, item]) => ({ id, state: item.state, pid: item.process?.pid || null })) }));
