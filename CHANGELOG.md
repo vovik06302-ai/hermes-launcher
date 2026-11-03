@@ -4,6 +4,8 @@ All notable changes to Hermes Launcher will be documented in this file.
 
 ## [Unreleased]
 
+## [1.0.7] - 2026-11-03
+
 ### Added
 - modular architecture for renderer UI in `renderer/modules/` (`state.js`, `api.js`, `notify.js`, `logic.js`, `dialogs.js`, `config-form.js`, `sessions.js`, `terminal.js`)
 - map of renderer architecture and zone dependencies in `docs/RENDERER_MAP.md`
