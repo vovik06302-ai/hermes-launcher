@@ -50,7 +50,8 @@
     "publish": {
       "provider": "github",
       "owner": "vovik06302-ai",
-      "repo": "hermes-launcher"
+      "repo": "hermes-launcher",
+      "releaseType": "release"
     },
     "asarUnpack": [
       "**/node_modules/node-pty/**"
