@@ -37,6 +37,8 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           CSC_LINK: ${{ secrets.WINDOWS_CERTIFICATE_BASE64 }}
           CSC_KEY_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
+          # В лог сборки попадёт сгенерированный NSIS-скрипт — контроль хуков installer.nsh.
+          DEBUG: electron-builder
         run: |
           # Пустая строка CSC_LINK/WIN_CSC_LINK не отключает подпись: electron-builder
           # пытается разрешить её как путь и падает с 'not a file'. Поэтому незаданные
