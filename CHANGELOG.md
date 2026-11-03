@@ -22,6 +22,7 @@ All notable changes to Hermes Launcher will be documented in this file.
 - `isEncrypted()` flag in API key status with a UI warning when `safeStorage` is unavailable
 - `LICENSE` file (MIT)
 - `npm run lint` syntax check across all project JS files
+- context sync cache (`createContextSyncCache`): repeated launches with unchanged settings skip the series of `hermes config set` processes
 
 ### Changed
 - refactored monolithic `renderer.js` into modular structure and concise bootstrap script

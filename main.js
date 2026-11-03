@@ -3,7 +3,7 @@ const { app, ipcMain, dialog, clipboard } = require('electron');
 const path = require('path');
 const { pathToFileURL } = require('url');
 const { createConfigStore, normalize } = require('./lib/config');
-const { run, resolveHermes } = require('./lib/commands');
+const { run, resolveHermes, createContextSyncCache } = require('./lib/commands');
 const { createLogger } = require('./lib/logger');
 const { ProviderRegistry } = require('./lib/provider-registry');
 const { TaskQueue } = require('./lib/task-queue');
@@ -49,7 +49,7 @@ const providerRegistry = new ProviderRegistry(path.join(app.getPath('userData'),
 const comparisonQueue = new TaskQueue(4);
 // updating — единственный мутатор: services.appState.updating (см. hermes:update в shared-handlers)
 const page = pathToFileURL(path.join(__dirname, 'renderer', 'index.html')).href;
-const hermesRuntime = createHermesRuntime({ apiKeys, logger, winRef: () => win });
+const hermesRuntime = createHermesRuntime({ apiKeys, logger, winRef: () => win, syncCache: createContextSyncCache(path.join(userDataDir, '.context-sync.json')) });
 const { terminal, terminalPool, terminalFor } = hermesRuntime;
 const sessionServices = createSessionServices({
   startHermes: (input, id, terminalId) => start(input, id, terminalId),

@@ -9,7 +9,7 @@ const crypto = require('crypto');
 const { WebSocketServer, WebSocket } = require('ws');
 
 const { createConfigStore, normalize } = require('./lib/config');
-const { run, resolveHermes } = require('./lib/commands');
+const { run, resolveHermes, createContextSyncCache } = require('./lib/commands');
 const { createLogger } = require('./lib/logger');
 const { ProviderRegistry } = require('./lib/provider-registry');
 const { TaskQueue } = require('./lib/task-queue');
@@ -150,7 +150,7 @@ const providerRegistry = new ProviderRegistry(path.join(userDataDir, 'plugins', 
 const comparisonQueue = new TaskQueue(4);
 
 
-const hermesRuntime = createHermesRuntime({ apiKeys, logger, winRef: () => mockWin });
+const hermesRuntime = createHermesRuntime({ apiKeys, logger, winRef: () => mockWin, syncCache: createContextSyncCache(path.join(userDataDir, '.context-sync.json')) });
 const { terminal, terminalPool, terminalFor } = hermesRuntime;
 
 const sessionServices = createSessionServices({

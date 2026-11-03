@@ -517,3 +517,23 @@ test('остановка терминала эскалирует до прину
   t.mock.timers.tick(5000);
   assert.deepEqual(kills, [null, 'SIGKILL']);
 });
+
+test('syncContext пропускает повторную запись при неизменных настройках', async () => {
+  const { syncContext, buildContextSettings, contextFingerprint, createContextSyncCache } = require('../lib/commands');
+  const cfg = normalize({ provider: 'ollama', model: 'qwen', contextLength: 128000 });
+  const hash = contextFingerprint('missing-hermes-binary', buildContextSettings(cfg));
+  // Хэш совпал — бинарь Hermes вообще не вызывается.
+  const skipped = await syncContext('missing-hermes-binary', cfg, { read: () => hash, write() {} });
+  assert.equal(skipped.skipped, true);
+  // Хэш не совпал — выполняется реальный вызов, который падает на несуществующем бинаре.
+  await assert.rejects(syncContext('missing-hermes-binary', cfg, { read: () => null, write() {} }));
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'hermes-sync-cache-'));
+  try {
+    const cache = createContextSyncCache(path.join(dir, '.context-sync.json'));
+    assert.equal(cache.read(), null);
+    cache.write('abc');
+    assert.equal(cache.read(), 'abc');
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
