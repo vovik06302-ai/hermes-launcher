@@ -4,8 +4,11 @@ All notable changes to Hermes Launcher will be documented in this file.
 
 ## [Unreleased]
 
+## [1.0.9] - 2026-11-03
+
 ### Fixed
 - release workflow no longer fails on `WIN_CSC_LINK` resolution: empty certificate variables are removed from the environment before the unsigned NSIS build (an empty string is treated as a path by electron-builder)
+- исправлена версия пакета для релизного пайплайна: тег `v1.0.9` теперь совпадает с `package.json`
 
 ## [1.0.7] - 2026-11-03
 
