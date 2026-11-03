@@ -388,11 +388,32 @@
       btn.title = `Доступно обновление ${version}`;
     }
 
-    // Возвращает кнопке обычный статический текст (сбрасывает бегущую строку).
+    // Возвращает кнопке обычный статический текст (сбрасывает бегущую строку и прогресс).
     function resetUpdateButton(btn, text) {
       if (!btn) return;
-      btn.classList.remove('update-available');
+      btn.classList.remove('update-available', 'update-progressing');
       btn.textContent = text;
+    }
+
+    // Заполняет саму кнопку цветом пропорционально проценту загрузки обновления.
+    function setButtonProgress(btn, percent) {
+      if (!btn) return;
+      if (!btn.classList.contains('update-progressing')) {
+        btn.classList.remove('update-available');
+        btn.classList.add('update-progressing');
+        btn.textContent = '';
+        const fill = document.createElement('span');
+        fill.className = 'update-fill';
+        const label = document.createElement('span');
+        label.className = 'update-label';
+        btn.appendChild(fill);
+        btn.appendChild(label);
+      }
+      const pct = Math.max(0, Math.min(100, Math.round(percent || 0)));
+      const fill = btn.querySelector('.update-fill');
+      const label = btn.querySelector('.update-label');
+      if (fill) fill.style.width = `${pct}%`;
+      if (label) label.textContent = `Загрузка… ${pct}%`;
     }
 
     el('update-launcher-btn')?.addEventListener('click', () => perform(async () => {
@@ -456,7 +477,7 @@
       } else if (updaterState === 'ready_to_download') {
         if (btn) {
           btn.disabled = true;
-          resetUpdateButton(btn, 'Загрузка…');
+          setButtonProgress(btn, 0);
         }
         if (log) log.textContent = 'Загрузка обновления…';
         if (progressContainer) progressContainer.hidden = false;
@@ -507,6 +528,10 @@
         if (progressContainer) progressContainer.hidden = false;
         if (progressBar && data.percent !== undefined) progressBar.value = data.percent;
         if (progressPercent && data.percent !== undefined) progressPercent.textContent = `${data.percent}%`;
+
+        if (updaterState === 'ready_to_download' && data.percent !== undefined && data.percent < 100) {
+          setButtonProgress(btn, data.percent);
+        }
 
         if (data.downloaded || data.stage === 'downloaded' || data.percent === 100) {
           updaterState = 'ready_to_install';

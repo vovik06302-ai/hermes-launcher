@@ -379,6 +379,32 @@ button {
   to { transform: translateX(-50%); }
 }
 
+/* Кнопка обновления как индикатор прогресса загрузки */
+#update-launcher-btn.update-progressing {
+  position: relative;
+  overflow: hidden;
+  border-color: var(--accent);
+}
+
+#update-launcher-btn .update-fill {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 0;
+  background: linear-gradient(90deg,
+    color-mix(in srgb, var(--accent) 55%, transparent),
+    var(--accent));
+  opacity: .45;
+  transition: width .3s ease;
+  pointer-events: none;
+}
+
+#update-launcher-btn .update-label {
+  position: relative;
+  z-index: 1;
+}
+
 button:hover:not(:disabled) {
   background: var(--hover);
   border-color: var(--hover-border);
