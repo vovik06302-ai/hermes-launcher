@@ -359,6 +359,7 @@ button {
 /* Бегущая строка «Доступно обновление» внутри кнопки */
 #update-launcher-btn.update-available {
   overflow: hidden;
+  max-width: 260px;
   border-color: var(--accent);
   box-shadow: 0 0 12px color-mix(in srgb, var(--accent) 35%, transparent);
 }

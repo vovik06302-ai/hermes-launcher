@@ -4,6 +4,11 @@ All notable changes to Hermes Launcher will be documented in this file.
 
 ## [Unreleased]
 
+## [1.0.15] - 2026-11-03
+
+### Fixed
+- кнопка с бегущей строкой обновления ограничена по ширине (260px) и больше не раздвигает шапку приложения
+
 ## [1.0.14] - 2026-11-03
 
 ### Fixed

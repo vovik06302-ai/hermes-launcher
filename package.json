@@ -1,6 +1,6 @@
 {
   "name": "hermes-launcher",
-  "version": "1.0.14",
+  "version": "1.0.15",
   "description": "GUI-панель запуска для Hermes Agent (по образцу панели OpenCode)",
   "main": "main.js",
   "repository": {
