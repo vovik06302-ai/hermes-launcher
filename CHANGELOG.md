@@ -4,6 +4,9 @@ All notable changes to Hermes Launcher will be documented in this file.
 
 ## [Unreleased]
 
+### Fixed
+- release workflow no longer fails on `WIN_CSC_LINK` resolution: certificate variables are explicitly cleared for the unsigned NSIS build
+
 ## [1.0.7] - 2026-11-03
 
 ### Added

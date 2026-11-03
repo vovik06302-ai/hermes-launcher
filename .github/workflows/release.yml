@@ -37,6 +37,11 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           CSC_LINK: ${{ secrets.WINDOWS_CERTIFICATE_BASE64 }}
           CSC_KEY_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
+          # Подписи нет (signAndEditExecutable: false), поэтому явно обнуляем
+          # унаследованные переменные сертификата — иначе electron-builder
+          # падает, пытаясь разрешить некорректный WIN_CSC_LINK из окружения.
+          WIN_CSC_LINK: ''
+          WIN_CSC_KEY_PASSWORD: ''
         run: npx electron-builder --win nsis --publish always
       - name: Upload release diagnostics
         if: always()
