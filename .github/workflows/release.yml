@@ -37,12 +37,17 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           CSC_LINK: ${{ secrets.WINDOWS_CERTIFICATE_BASE64 }}
           CSC_KEY_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
-          # Подписи нет (signAndEditExecutable: false), поэтому явно обнуляем
-          # унаследованные переменные сертификата — иначе electron-builder
-          # падает, пытаясь разрешить некорректный WIN_CSC_LINK из окружения.
-          WIN_CSC_LINK: ''
-          WIN_CSC_KEY_PASSWORD: ''
-        run: npx electron-builder --win nsis --publish always
+        run: |
+          # Пустая строка CSC_LINK/WIN_CSC_LINK не отключает подпись: electron-builder
+          # пытается разрешить её как путь и падает с 'not a file'. Поэтому незаданные
+          # переменные сертификата удаляем из окружения совсем; заданные секреты
+          # (подписанная сборка в будущем) продолжат работать.
+          foreach ($name in 'WIN_CSC_LINK','WIN_CSC_KEY_PASSWORD','CSC_LINK','CSC_KEY_PASSWORD') {
+            if ([string]::IsNullOrWhiteSpace([Environment]::GetEnvironmentVariable($name))) {
+              Remove-Item "Env:$name" -ErrorAction SilentlyContinue
+            }
+          }
+          npx electron-builder --win nsis --publish always
       - name: Upload release diagnostics
         if: always()
         uses: actions/upload-artifact@v4
