@@ -1,6 +1,6 @@
 {
   "name": "hermes-launcher",
-  "version": "1.0.12",
+  "version": "1.0.13",
   "description": "GUI-панель запуска для Hermes Agent (по образцу панели OpenCode)",
   "main": "main.js",
   "repository": {
@@ -65,6 +65,7 @@
       "oneClick": false,
       "perMachine": false,
       "allowToChangeInstallationDirectory": true,
+      "include": "build/installer.nsh",
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
       "shortcutName": "Hermes Launcher",
