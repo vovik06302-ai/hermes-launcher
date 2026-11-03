@@ -259,7 +259,8 @@ test('конфигурация publish и nsis в package.json корректн�
   assert.deepEqual(pkg.build?.publish, {
     provider: 'github',
     owner: 'vovik06302-ai',
-    repo: 'hermes-launcher'
+    repo: 'hermes-launcher',
+    releaseType: 'release'
   });
   assert.equal(pkg.build?.artifactName, 'Hermes-Launcher-Setup-${version}.exe');
   assert.equal(pkg.build?.nsis?.oneClick, false);
