@@ -356,6 +356,29 @@ button {
   font-weight: 500;
 }
 
+/* Бегущая строка «Доступно обновление» внутри кнопки */
+#update-launcher-btn.update-available {
+  overflow: hidden;
+  border-color: var(--accent);
+  box-shadow: 0 0 12px color-mix(in srgb, var(--accent) 35%, transparent);
+}
+
+#update-launcher-btn .update-marquee {
+  display: inline-flex;
+  white-space: nowrap;
+  will-change: transform;
+  animation: update-marquee 10s linear infinite;
+}
+
+#update-launcher-btn .update-marquee > span {
+  padding-right: 1.5em;
+}
+
+@keyframes update-marquee {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+
 button:hover:not(:disabled) {
   background: var(--hover);
   border-color: var(--hover-border);

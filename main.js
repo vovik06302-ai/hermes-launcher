@@ -88,7 +88,13 @@ bootstrapApp({
   providerRegistry,
   logger,
   createWindow,
-  createTrayIcon
+  createTrayIcon,
+  focusWindow: () => {
+    if (!win) return;
+    if (win.isMinimized()) win.restore();
+    win.show();
+    win.focus();
+  }
 });
 
 const { handle } = registerIpcHandlers({

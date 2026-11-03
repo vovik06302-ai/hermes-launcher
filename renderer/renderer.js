@@ -371,6 +371,30 @@
 
     let updaterState = 'idle';
 
+    // Показывает на кнопке обновления бегущую строку с номером доступной версии.
+    function showUpdateAvailable(btn, version) {
+      if (!btn) return;
+      const text = `Доступно обновление v${version} — нажмите, чтобы обновить • `;
+      btn.classList.add('update-available');
+      btn.textContent = '';
+      const marquee = document.createElement('span');
+      marquee.className = 'update-marquee';
+      for (let i = 0; i < 2; i++) {
+        const part = document.createElement('span');
+        part.textContent = text;
+        marquee.appendChild(part);
+      }
+      btn.appendChild(marquee);
+      btn.title = `Доступно обновление ${version}`;
+    }
+
+    // Возвращает кнопке обычный статический текст (сбрасывает бегущую строку).
+    function resetUpdateButton(btn, text) {
+      if (!btn) return;
+      btn.classList.remove('update-available');
+      btn.textContent = text;
+    }
+
     el('update-launcher-btn')?.addEventListener('click', () => perform(async () => {
       const btn = el('update-launcher-btn');
       const log = el('launcher-update-log');
@@ -396,7 +420,7 @@
           if (!result.ok) {
             if (btn) {
               btn.disabled = false;
-              btn.textContent = 'Проверить обновление';
+              resetUpdateButton(btn, 'Проверить обновление');
             }
             const msg = result.error || result.message || 'Ошибка проверки обновления';
             if (log) log.textContent = msg;
@@ -408,7 +432,7 @@
             updaterState = 'ready_to_download';
             if (btn) {
               btn.disabled = false;
-              btn.textContent = 'Обновить';
+              showUpdateAvailable(btn, result.version);
             }
             if (log) log.textContent = `Есть обновление ${result.version}`;
             UI.notify.log(`Доступно обновление: ${result.version}`);
@@ -416,7 +440,7 @@
             updaterState = 'idle';
             if (btn) {
               btn.disabled = false;
-              btn.textContent = 'Проверить обновление';
+              resetUpdateButton(btn, 'Проверить обновление');
             }
             if (log) log.textContent = 'Установлена последняя версия';
             UI.notify.log('Установлена последняя версия');
@@ -424,7 +448,7 @@
         } catch (e) {
           if (btn) {
             btn.disabled = false;
-            btn.textContent = 'Проверить обновление';
+            resetUpdateButton(btn, 'Проверить обновление');
           }
           if (log) log.textContent = e.message;
           UI.notify.log(e.message, true);
@@ -432,7 +456,7 @@
       } else if (updaterState === 'ready_to_download') {
         if (btn) {
           btn.disabled = true;
-          btn.textContent = 'Загрузка…';
+          resetUpdateButton(btn, 'Загрузка…');
         }
         if (log) log.textContent = 'Загрузка обновления…';
         if (progressContainer) progressContainer.hidden = false;
@@ -446,7 +470,7 @@
           updaterState = 'ready_to_download';
           if (btn) {
             btn.disabled = false;
-            btn.textContent = 'Обновить';
+            resetUpdateButton(btn, 'Обновить');
           }
           if (log) log.textContent = e.message;
           UI.notify.log(e.message, true);
@@ -454,7 +478,7 @@
       } else if (updaterState === 'ready_to_install') {
         if (btn) {
           btn.disabled = true;
-          btn.textContent = 'Установка…';
+          resetUpdateButton(btn, 'Установка…');
         }
         if (log) log.textContent = 'Остановка сервисов и установка обновления…';
         try {
@@ -463,7 +487,7 @@
           updaterState = 'ready_to_install';
           if (btn) {
             btn.disabled = false;
-            btn.textContent = 'Перезапустить и установить';
+            resetUpdateButton(btn, 'Перезапустить и установить');
           }
           if (log) log.textContent = e.message;
           UI.notify.log(e.message, true);
@@ -489,7 +513,7 @@
           if (progressStage) progressStage.textContent = 'Обновление загружено';
           if (btn) {
             btn.disabled = false;
-            btn.textContent = 'Перезапустить и установить';
+            resetUpdateButton(btn, 'Перезапустить и установить');
           }
           if (log) log.textContent = 'Обновление загружено. Готово к установке.';
 
@@ -551,6 +575,17 @@
           const updateLog = el('launcher-update-log');
           if (updateLog) updateLog.textContent = 'Обновление работает только в установленной версии';
         }
+      } else {
+        // Автопроверка при старте: если есть новая версия, кнопка сразу показывает бегущую строку.
+        UI.call('updaterCheck').then(upd => {
+          if (upd && upd.ok && upd.available) {
+            updaterState = 'ready_to_download';
+            showUpdateAvailable(el('update-launcher-btn'), upd.version);
+            const updateLog = el('launcher-update-log');
+            if (updateLog) updateLog.textContent = `Есть обновление ${upd.version}`;
+            UI.notify.log(`Доступно обновление: ${upd.version}`);
+          }
+        }).catch(() => {});
       }
       UI.configForm.fillForm();
 
