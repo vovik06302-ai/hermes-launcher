@@ -14,13 +14,12 @@
 !macroend
 
 !macro customCheckAppRunning
-  ; До трёх попыток: завершаем процесс и ждём, пока он исчезнет из списка.
-  ; $processPathFilter заполняется штатным макросом CHECK_APP_RUNNING до вызова этого хука.
+  ; До трёх попыток: завершаем процесс и ждём, пока он исчезнет из списка задач.
   StrCpy $R6 0
   kill_loop:
     nsExec::Exec `"$SYSDIR\taskkill.exe" /F /IM "${APP_EXECUTABLE_FILENAME}"`
     Sleep 1000
-    nsExec::Exec `"$PowerShellPath" -NoProfile -NonInteractive -C "if ((Get-CimInstance -ClassName Win32_Process | ? {$$_.Path -and ($processPathFilter)}).Count -gt 0) { exit 0 } else { exit 1 }"`
+    nsExec::Exec `"$SYSDIR\cmd.exe" /S /C ""$SYSDIR\tasklist.exe" /FI "IMAGENAME eq ${APP_EXECUTABLE_FILENAME}" /FO CSV /NH | "$SYSDIR\findstr.exe" /B /I /C:"\"${APP_EXECUTABLE_FILENAME}\"""`
     Pop $R7
     ${if} $R7 == 1
       Goto kill_done
