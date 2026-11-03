@@ -9,7 +9,7 @@ const crypto = require('crypto');
 const { WebSocketServer, WebSocket } = require('ws');
 
 const { createConfigStore, normalize } = require('./lib/config');
-const { run, resolveHermes, summarizeVersion } = require('./lib/commands');
+const { run, resolveHermes } = require('./lib/commands');
 const { createLogger } = require('./lib/logger');
 const { ProviderRegistry } = require('./lib/provider-registry');
 const { TaskQueue } = require('./lib/task-queue');
@@ -20,6 +20,8 @@ const { createHermesRuntime } = require('./lib/hermes-runtime');
 const { createAppServices } = require('./lib/services');
 const { createSessionServices } = require('./lib/session-services');
 const { createUpdater } = require('./lib/updater');
+const { registerSharedHandlers } = require('./lib/shared-handlers');
+const { isValidOrigin, createTokenRateLimiter } = require('./lib/web-security');
 const github = require('./lib/github');
 
 const userDataDir = path.join(process.cwd(), '.data');
@@ -42,8 +44,11 @@ function getOrCreateWebToken() {
 }
 
 const WEB_TOKEN = getOrCreateWebToken();
-const HOST = process.env.HERMES_WEB_HOST || '0.0.0.0';
+// По умолчанию слушаем только localhost: веб-панель даёт доступ к терминалу,
+// и открывать её в сеть без явной настройки недопустимо.
+const HOST = process.env.HERMES_WEB_HOST || '127.0.0.1';
 const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
+const tokenLimiter = createTokenRateLimiter();
 
 const app = express();
 const server = http.createServer(app);
@@ -79,19 +84,6 @@ const mockDialog = {
     return { response: options?.cancelId !== undefined ? options.cancelId : 0 };
   }
 };
-
-function isValidOrigin(originHeader, hostHeader) {
-  if (!originHeader) return true;
-  try {
-    const originUrl = new URL(originHeader);
-    if (hostHeader && (originUrl.host === hostHeader || originUrl.host === hostHeader.split(',')[0].trim())) return true;
-    const hostname = originUrl.hostname;
-    if (hostname === '127.0.0.1' || hostname === 'localhost' || hostname === '0.0.0.0' || hostname === HOST) return true;
-    return true;
-  } catch (e) {
-    return false;
-  }
-}
 
 const ipcHandlers = new Map();
 const ipcListeners = new Map();
@@ -157,9 +149,6 @@ const providerManager = services.providerManager;
 const providerRegistry = new ProviderRegistry(path.join(userDataDir, 'plugins', 'providers'));
 const comparisonQueue = new TaskQueue(4);
 
-let lastCpuUsage = process.cpuUsage();
-let lastCpuTime = process.hrtime.bigint();
-
 
 const hermesRuntime = createHermesRuntime({ apiKeys, logger, winRef: () => mockWin });
 const { terminal, terminalPool, terminalFor } = hermesRuntime;
@@ -204,50 +193,20 @@ const { handle } = registerIpcHandlers({
   updater
 });
 
-handle('metrics:get', () => {
-  const now = process.hrtime.bigint();
-  const elapsed = Number(now - lastCpuTime) / 1000;
-  const usage = process.cpuUsage(lastCpuUsage);
-  lastCpuUsage = process.cpuUsage();
-  lastCpuTime = now;
-  const cpu = elapsed > 0 ? Math.min(100, ((usage.user + usage.system) / elapsed) * 100) : 0;
-  return { cpu, memoryMb: Math.round(process.memoryUsage().rss / 1024 / 1024) };
-});
-
 async function start(input, sessionId, terminalId = 'default') {
   return hermesRuntime.start(input, sessionId, terminalId, () => services.appState.updating);
 }
 
-handle('hermes:launch', (input, terminalId) => start(input, null, terminalId));
-handle('hermes:resume', (input, id, terminalId) => start(input, id, terminalId));
-handle('models:compareRun', async plan => sessionServices.runComparisonPlan(plan, comparisonQueue));
-handle('models:compareQueue', () => comparisonQueue.snapshot());
-handle('models:compareCancel', id => ({ canceled: comparisonQueue.cancel(id) }));
-handle('hermes:version', async input => {
-  const result = await run(await resolveHermes(normalize(input)), ['--version']);
-  return summarizeVersion(result);
+registerSharedHandlers({
+  handle,
+  terminal,
+  terminalPool,
+  terminalFor,
+  comparisonQueue,
+  sessionServices,
+  startHermes: (input, id, terminalId) => start(input, id, terminalId),
+  appState: services.appState
 });
-handle('hermes:update', async input => {
-  if (services.appState.updating || ['starting', 'running', 'stopping'].includes(terminal.state)) throw new Error('Сначала завершите текущую операцию.');
-  services.appState.updating = true;
-  try {
-    const result = await run(await resolveHermes(normalize(input)), ['update', '--force-venv'], 300000);
-    if (!result.ok) throw new Error(result.error);
-    return { output: result.output };
-  } finally { services.appState.updating = false; }
-});
-handle('terminal:state', () => ({ state: terminal.state }));
-handle('terminal:sessions', () => ({ sessions: [...terminalPool.terminals].map(([id, item]) => ({ id, state: item.state, pid: item.process?.pid || null })) }));
-handle('terminal:create', (_input, id) => {
-  if (typeof id !== 'string' || !/^[a-zA-Z0-9_-]{1,32}$/.test(id)) throw new Error('Некорректный идентификатор терминала.');
-  terminalFor(id);
-  return { id };
-});
-handle('terminal:close', id => {
-  if (id === 'default') throw new Error('Основной терминал закрыть нельзя.');
-  return { removed: terminalPool.remove(id) };
-});
-handle('terminal:kill', () => terminal.stop());
 
 const mockEvent = { sender: mockWin.webContents, senderFrame: { url: 'web' } };
 
@@ -279,7 +238,7 @@ app.get(['/', '/index.html'], (req, res) => {
     let html = fs.readFileSync(filePath, 'utf8');
     const tokenScript = `<script>window.__HERMES_TOKEN__ = ${JSON.stringify(WEB_TOKEN)};</script>`;
     html = html.replace('</head>', `${tokenScript}\n</head>`);
-    res.setHeader('Set-Cookie', `hermes_token=${WEB_TOKEN}; Path=/; SameSite=Lax`);
+    res.setHeader('Set-Cookie', `hermes_token=${WEB_TOKEN}; Path=/; HttpOnly; SameSite=Strict`);
     res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
     res.send(html);
   } catch (e) {
@@ -290,6 +249,11 @@ app.get(['/', '/index.html'], (req, res) => {
 app.use(express.static(path.join(__dirname, 'renderer')));
 
 app.post('/api/invoke', async (req, res) => {
+  const ip = req.ip || req.socket.remoteAddress || 'unknown';
+  if (!tokenLimiter.check(ip)) {
+    return res.status(429).json({ ok: false, error: 'Слишком много неудачных попыток. Повторите позже.' });
+  }
+
   const origin = req.headers.origin;
   if (origin && !isValidOrigin(origin, req.headers.host)) {
     return res.status(403).json({ ok: false, error: 'Запрещено: недопустимый Origin' });
@@ -297,8 +261,10 @@ app.post('/api/invoke', async (req, res) => {
 
   const token = extractToken(req);
   if (!token || token !== WEB_TOKEN) {
+    tokenLimiter.failure(ip);
     return res.status(401).json({ ok: false, error: 'Неавторизован: неверный или отсутствует токен' });
   }
+  tokenLimiter.success(ip);
 
   const { channel, args = [] } = req.body || {};
   if (!channel) return res.status(400).json({ ok: false, error: 'Канал не указан' });
@@ -316,6 +282,13 @@ app.post('/api/invoke', async (req, res) => {
 });
 
 server.on('upgrade', (request, socket, head) => {
+  const ip = request.socket.remoteAddress || 'unknown';
+  if (!tokenLimiter.check(ip)) {
+    socket.write('HTTP/1.1 429 Too Many Requests\r\n\r\n');
+    socket.destroy();
+    return;
+  }
+
   const origin = request.headers.origin;
   if (origin && !isValidOrigin(origin, request.headers.host)) {
     socket.write('HTTP/1.1 403 Forbidden\r\n\r\n');
@@ -329,10 +302,12 @@ server.on('upgrade', (request, socket, head) => {
   const cookieToken = cookieHeader ? (cookieHeader.match(/(?:^|;\s*)hermes_token=([^;]+)/) || [])[1] : null;
   const token = url.searchParams.get('token') || request.headers['x-hermes-token'] || cookieToken;
   if (!token || token !== WEB_TOKEN) {
+    tokenLimiter.failure(ip);
     socket.write('HTTP/1.1 401 Unauthorized\r\n\r\n');
     socket.destroy();
     return;
   }
+  tokenLimiter.success(ip);
 
   if (url.pathname === '/ws') {
     wss.handleUpgrade(request, socket, head, ws => {
@@ -369,6 +344,9 @@ wss.on('connection', ws => {
 });
 
 server.listen(PORT, HOST, () => {
+  if (!['127.0.0.1', 'localhost'].includes(HOST)) {
+    console.warn(`ВНИМАНИЕ: веб-панель доступна из сети (${HOST}:${PORT}). Любой, кто узнает токен, получит доступ к терминалу.`);
+  }
   console.log(`Hermes Web Token: ${WEB_TOKEN}`);
   console.log(`Hermes Launcher Web App running at http://${HOST}:${PORT}`);
 });

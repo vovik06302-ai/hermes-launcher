@@ -194,7 +194,13 @@
 
     try {
       const result = await root.HermesUI.call('apiKeyStatus', provider);
-      if (el('apiKeyStatus')) el('apiKeyStatus').textContent = result.saved ? 'Ключ сохранён защищённо.' : 'Ключ не сохранён.';
+      if (el('apiKeyStatus')) {
+        el('apiKeyStatus').textContent = !result.saved
+          ? 'Ключ не сохранён.'
+          : result.encrypted === false
+            ? 'Ключ сохранён, но без шифрования: системное хранилище safeStorage недоступно.'
+            : 'Ключ сохранён защищённо.';
+      }
     } catch (error) {
       if (el('apiKeyStatus')) el('apiKeyStatus').textContent = error.message;
     }

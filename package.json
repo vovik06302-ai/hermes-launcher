@@ -8,11 +8,10 @@
     "url": "https://github.com/vovik06302-ai/hermes-launcher.git"
   },
   "scripts": {
-    "build": "echo 'Build completed'",
-    "lint": "node -c server.js",
+    "lint": "node scripts/lint.js",
     "dev": "node server.js",
     "prestart": "node scripts/prepare-native.js",
-    "start": "node server.js",
+    "start": "electron .",
     "start:web": "node server.js",
     "predist": "node scripts/prepare-native.js",
     "dist": "electron-builder --win nsis",

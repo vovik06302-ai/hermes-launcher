@@ -3,7 +3,7 @@ const { app, ipcMain, dialog, clipboard } = require('electron');
 const path = require('path');
 const { pathToFileURL } = require('url');
 const { createConfigStore, normalize } = require('./lib/config');
-const { run, resolveHermes, summarizeVersion } = require('./lib/commands');
+const { run, resolveHermes } = require('./lib/commands');
 const { createLogger } = require('./lib/logger');
 const { ProviderRegistry } = require('./lib/provider-registry');
 const { TaskQueue } = require('./lib/task-queue');
@@ -18,6 +18,7 @@ const { createAppServices } = require('./lib/services');
 const { createSessionServices } = require('./lib/session-services');
 const { migratePortableData } = require('./lib/data-migration');
 const { createUpdater } = require('./lib/updater');
+const { registerSharedHandlers } = require('./lib/shared-handlers');
 const github = require('./lib/github');
 let win;
 let tray = null;
@@ -46,9 +47,7 @@ app.on('before-quit', () => { services.appState.isQuitting = true; });
 const providerManager = services.providerManager;
 const providerRegistry = new ProviderRegistry(path.join(app.getPath('userData'), 'plugins', 'providers'));
 const comparisonQueue = new TaskQueue(4);
-let lastCpuUsage = process.cpuUsage();
-let lastCpuTime = process.hrtime.bigint();
-// updating — единственный мутатор: services.appState.updating (см. hermes:update ниже)
+// updating — единственный мутатор: services.appState.updating (см. hermes:update в shared-handlers)
 const page = pathToFileURL(path.join(__dirname, 'renderer', 'index.html')).href;
 const hermesRuntime = createHermesRuntime({ apiKeys, logger, winRef: () => win });
 const { terminal, terminalPool, terminalFor } = hermesRuntime;
@@ -114,47 +113,19 @@ const { handle } = registerIpcHandlers({
   sessionServices,
   updater
 });
-handle('metrics:get', () => {
-  const now = process.hrtime.bigint();
-  const elapsed = Number(now - lastCpuTime) / 1000;
-  const usage = process.cpuUsage(lastCpuUsage);
-  lastCpuUsage = process.cpuUsage(); lastCpuTime = now;
-  const cpu = elapsed > 0 ? Math.min(100, ((usage.user + usage.system) / elapsed) * 100) : 0;
-  return { cpu, memoryMb: Math.round(process.memoryUsage().rss / 1024 / 1024) };
-});
 async function start(input, sessionId, terminalId = 'default') {
   return hermesRuntime.start(input, sessionId, terminalId, () => services.appState.updating);
 }
-handle('hermes:launch', (input, terminalId) => start(input, null, terminalId));
-handle('hermes:resume', (input, id, terminalId) => start(input, id, terminalId));
-handle('models:compareRun', async plan => sessionServices.runComparisonPlan(plan, comparisonQueue));
-handle('models:compareQueue', () => comparisonQueue.snapshot());
-handle('models:compareCancel', id => ({ canceled: comparisonQueue.cancel(id) }));
-handle('hermes:version', async input => {
-  const result = await run(await resolveHermes(normalize(input)), ['--version']);
-  return summarizeVersion(result);
+registerSharedHandlers({
+  handle,
+  terminal,
+  terminalPool,
+  terminalFor,
+  comparisonQueue,
+  sessionServices,
+  startHermes: (input, id, terminalId) => start(input, id, terminalId),
+  appState: services.appState
 });
-handle('hermes:update', async input => {
-  if (services.appState.updating || ['starting', 'running', 'stopping'].includes(terminal.state)) throw new Error('Сначала завершите текущую операцию.');
-  services.appState.updating = true;
-  try {
-    const result = await run(await resolveHermes(normalize(input)), ['update', '--force-venv'], 300000);
-    if (!result.ok) throw new Error(result.error);
-    return { output: result.output };
-  } finally { services.appState.updating = false; }
-});
-handle('terminal:state', () => ({ state: terminal.state }));
-handle('terminal:sessions', () => ({ sessions: [...terminalPool.terminals].map(([id, item]) => ({ id, state: item.state, pid: item.process?.pid || null })) }));
-handle('terminal:create', (_input, id) => {
-  if (typeof id !== 'string' || !/^[a-zA-Z0-9_-]{1,32}$/.test(id)) throw new Error('Некорректный идентификатор терминала.');
-  terminalFor(id);
-  return { id };
-});
-handle('terminal:close', id => {
-  if (id === 'default') throw new Error('Основной терминал закрыть нельзя.');
-  return { removed: terminalPool.remove(id) };
-});
-handle('terminal:kill', () => terminal.stop());
 ipcMain.on('terminal:input', (event, data) => { if (trusted(event)) terminal.write(data); });
 ipcMain.on('terminal:resize', (event, cols, rows) => { if (trusted(event)) { try { terminal.resize(cols, rows); } catch (e) { console.error(e.message); } } });
 ipcMain.on('terminal:input-for', (event, id, data) => { if (trusted(event)) terminalFor(id).write(data); });

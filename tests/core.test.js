@@ -445,3 +445,75 @@ test('контракт обновления лаунчера: версия и UR
   }
 });
 
+
+test('веб-режим отклоняет чужие Origin и принимает локальные', () => {
+  const { isValidOrigin } = require('../lib/web-security');
+  assert.equal(isValidOrigin(undefined, 'localhost:3000'), true);
+  assert.equal(isValidOrigin('http://localhost:3000', 'localhost:3000'), true);
+  assert.equal(isValidOrigin('http://127.0.0.1:3000', 'localhost:3000'), true);
+  assert.equal(isValidOrigin('https://evil.example.com', 'localhost:3000'), false);
+  assert.equal(isValidOrigin('http://192.168.1.50:3000', 'localhost:3000'), false);
+  assert.equal(isValidOrigin('not a url', 'localhost:3000'), false);
+});
+
+test('лимитер блокирует перебор токена после серии неудач', () => {
+  const { createTokenRateLimiter } = require('../lib/web-security');
+  const limiter = createTokenRateLimiter({ maxAttempts: 3, windowMs: 1000, blockMs: 60000 });
+  assert.equal(limiter.check('10.0.0.1'), true);
+  limiter.failure('10.0.0.1');
+  limiter.failure('10.0.0.1');
+  assert.equal(limiter.check('10.0.0.1'), true);
+  limiter.failure('10.0.0.1');
+  assert.equal(limiter.check('10.0.0.1'), false);
+  assert.equal(limiter.check('10.0.0.2'), true);
+  limiter.success('10.0.0.1');
+  assert.equal(limiter.check('10.0.0.1'), true);
+});
+
+test('syncContext пишет ollama_num_ctx только для Ollama', () => {
+  const { buildContextSettings } = require('../lib/commands');
+  const cloudKeys = buildContextSettings(normalize({ provider: 'openai', model: 'gpt-5', contextLength: 128000 })).map(([key]) => key);
+  assert.ok(!cloudKeys.includes('model.ollama_num_ctx'));
+  assert.ok(cloudKeys.includes('model.context_length'));
+  const ollamaKeys = buildContextSettings(normalize({ provider: 'ollama', model: 'qwen', contextLength: 128000 })).map(([key]) => key);
+  assert.ok(ollamaKeys.includes('model.ollama_num_ctx'));
+  assert.ok(ollamaKeys.indexOf('model.ollama_num_ctx') > ollamaKeys.indexOf('model.context_length'));
+  const geminiKeys = buildContextSettings(normalize({ provider: 'gemini', model: 'gemini-2.5-pro', contextLength: 128000 })).map(([key]) => key);
+  assert.ok(!geminiKeys.includes('model.ollama_num_ctx'));
+  assert.ok(geminiKeys.includes('model.base_url'));
+});
+
+test('терминал разбивает длинный ввод на части вместо отбрасывания', async () => {
+  const writes = [];
+  const child = { pid: 1, onData() {}, onExit() {}, write(chunk) { writes.push(chunk); }, resize() {}, kill() {} };
+  const manager = new TerminalManager(() => {}, () => child);
+  await manager.start(async () => ({ file: 'hermes', args: [] }));
+  const longInput = 'x'.repeat(65536 * 2 + 10);
+  manager.write(longInput);
+  assert.equal(writes.length, 3);
+  assert.equal(writes.join(''), longInput);
+});
+
+test('пул сообщает о занятых терминалах', () => {
+  const pool = new TerminalPool(() => ({ process: null, state: 'idle' }));
+  pool.create('a', () => {});
+  assert.equal(pool.hasActive(), false);
+  pool.get('a').state = 'running';
+  assert.equal(pool.hasActive(), true);
+  pool.get('a').state = 'idle';
+  pool.create('b', () => {});
+  pool.get('b').state = 'stopping';
+  assert.equal(pool.hasActive(), true);
+});
+
+test('остановка терминала эскалирует до принудительного завершения', async t => {
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  const kills = [];
+  const child = { pid: 1, onData() {}, onExit() {}, write() {}, resize() {}, kill(signal) { kills.push(signal || null); } };
+  const manager = new TerminalManager(() => {}, () => child);
+  await manager.start(async () => ({ file: 'hermes', args: [] }));
+  manager.stop();
+  assert.equal(manager.state, 'stopping');
+  t.mock.timers.tick(5000);
+  assert.deepEqual(kills, [null, 'SIGKILL']);
+});

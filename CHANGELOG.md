@@ -15,6 +15,13 @@ All notable changes to Hermes Launcher will be documented in this file.
 - structured readiness checks in `buildLaunchReadiness` (`{ text, ok }`)
 - support for plugin providers with `plugin-` prefix in `ProviderRegistry` and `providerName()`
 - environment variable requirement `HERMES_LOCAL_AI_ROOT` for process manager
+- shared IPC registration `lib/shared-handlers.js` used by both `main.js` and `server.js`
+- web security module `lib/web-security.js`: strict Origin validation and token brute-force rate limiting
+- forced kill escalation (`SIGKILL` after 5 s) when a terminal process ignores `stop()`
+- `TerminalPool.hasActive()` guard for Hermes update, provider unload, and session deletion
+- `isEncrypted()` flag in API key status with a UI warning when `safeStorage` is unavailable
+- `LICENSE` file (MIT)
+- `npm run lint` syntax check across all project JS files
 
 ### Changed
 - refactored monolithic `renderer.js` into modular structure and concise bootstrap script
@@ -22,6 +29,12 @@ All notable changes to Hermes Launcher will be documented in this file.
 - restricted model comparison plan to MAX_TERMINALS-1 with sequential execution
 - updated `README.md` to match actual capabilities, session limits, and API keys storage
 - cleaned up unused imports in `lib/app-ipc.js`
+- web server binds to `127.0.0.1` by default; `HERMES_WEB_HOST` is required to expose it on the network
+- web token cookie uses `HttpOnly` and `SameSite=Strict`
+- `npm start` launches the Electron app; the web mode moved to `npm run start:web`
+- long terminal input is chunked into 64 KB writes instead of being silently dropped
+- `syncContext` writes `model.ollama_num_ctx` only for the Ollama provider
+- process identity check on Windows uses PowerShell `Get-CimInstance` instead of the removed `wmic`
 
 ### Fixed
 - prevented corrupt config file from overwriting working backup on `save()`
@@ -31,6 +44,8 @@ All notable changes to Hermes Launcher will be documented in this file.
 - closed log file descriptors after service process spawn
 - verified process identity in `stopAll()` before termination
 - removed unused files, dead lifecycle handlers, and obsolete dependencies
+- Origin validation in the web server no longer accepts every origin
+- Hermes update and provider unload are blocked while any terminal in the pool is active, not only the default one
 
 ## [1.0.3]
 
