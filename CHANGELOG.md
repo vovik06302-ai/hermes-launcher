@@ -4,6 +4,11 @@ All notable changes to Hermes Launcher will be documented in this file.
 
 ## [Unreleased]
 
+## [1.0.14] - 2026-11-03
+
+### Fixed
+- установщик принудительно завершает работающее приложение через хук `customCheckAppRunning` (вместо диалога «Не удалось закрыть»), с проверкой исчезновения процесса до трёх попыток
+
 ## [1.0.13] - 2026-11-03
 
 ### Fixed
