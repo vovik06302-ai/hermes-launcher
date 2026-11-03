@@ -1,0 +1,7 @@
+# Единые окончания строк LF для всех текстовых файлов
+* text=auto eol=lf
+
+# Бинарные файлы не трогаем
+*.ico binary
+*.png binary
+*.exe binary
