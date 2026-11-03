@@ -4,6 +4,11 @@ All notable changes to Hermes Launcher will be documented in this file.
 
 ## [Unreleased]
 
+## [1.0.10] - 2026-11-03
+
+### Changed
+- GitHub-релиз публикуется сразу, без черновика (`releaseType: release` в конфигурации electron-builder)
+
 ## [1.0.9] - 2026-11-03
 
 ### Fixed
