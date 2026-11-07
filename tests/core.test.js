@@ -403,6 +403,23 @@ test('syncContext пишет ollama_num_ctx только для Ollama', () => {
   assert.ok(geminiKeys.includes('model.base_url'));
 });
 
+test('циклическая обрезка контекста настраивается для всех провайдеров одинаково', () => {
+  const { buildContextSettings } = require('../lib/commands');
+  const { COMPRESSION } = require('../lib/constants');
+  for (const provider of ['ollama', 'openai', 'gemini', 'lmstudio']) {
+    const settings = new Map(buildContextSettings(normalize({ provider, model: 'm', contextLength: 128000 })));
+    assert.equal(settings.get('compression.enabled'), true, `${provider}: обрезка должна быть включена`);
+    assert.equal(settings.get('compression.threshold'), COMPRESSION.threshold);
+    assert.equal(settings.get('compression.target_ratio'), COMPRESSION.targetRatio);
+    assert.equal(settings.get('compression.tail_mode'), COMPRESSION.tailMode);
+  }
+  // Инвариант «минус 30% окна за цикл»: хвост = target_ratio × threshold = 0.45,
+  // обрезается threshold − хвост = 0.30 окна.
+  const tail = COMPRESSION.targetRatio * COMPRESSION.threshold;
+  assert.ok(Math.abs(tail - 0.45) < 1e-9, `хвост должен быть 45% окна, получено ${tail}`);
+  assert.ok(Math.abs((COMPRESSION.threshold - tail) - 0.30) < 1e-9, 'за цикл должно освобождаться 30% окна');
+});
+
 test('терминал разбивает длинный ввод на части вместо отбрасывания', async () => {
   const writes = [];
   const child = { pid: 1, onData() {}, onExit() {}, write(chunk) { writes.push(chunk); }, resize() {}, kill() {} };
