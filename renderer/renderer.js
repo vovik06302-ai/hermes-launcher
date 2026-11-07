@@ -184,7 +184,7 @@
       UI.state.activeTerminalId = started[0] || UI.state.activeTerminalId;
       UI.terminal.renderTerminalTabs();
       UI.terminal.showTerminalView(UI.state.activeTerminalId);
-      UI.notify.log(`Сравнение запущено параллельно: ${result.plan.map(item => item.model).join(', ')}. Подтверждения отключены.`);
+      UI.notify.log(`Параллельный запуск: ${result.plan.map(item => item.model).join(', ')}. Каждая сессия ждёт ручного подтверждения действий; сводка ответов не формируется.`);
     }));
 
     el('modelProfilePicker')?.addEventListener('change', () => {

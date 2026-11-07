@@ -33,7 +33,7 @@
       ['Экспортировать лог', () => { const btn = document.getElementById('exportLogsBtn'); if (btn) btn.click(); }],
       ['GitHub: получить изменения', () => { const btn = document.getElementById('githubPullBtn'); if (btn) btn.click(); }],
       ['GitHub: отправить изменения', () => { const btn = document.getElementById('githubPushBtn'); if (btn) btn.click(); }],
-      ['Показать очередь сравнения', async () => {
+      ['Показать очередь параллельных запусков', async () => {
         if (root.HermesUI && root.HermesUI.call) {
           const result = await root.HermesUI.call('comparisonQueue');
           if (root.HermesUI.notify) root.HermesUI.notify.log(`Очередь: выполняется ${result.running}, ожидает ${result.pending.length}.`);
