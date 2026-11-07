@@ -185,7 +185,6 @@ const { handle } = registerIpcHandlers({
   terminal,
   modelCache,
   comparisonQueue,
-  updateManager: { check: (version, url) => services.updateLauncher(url, version) },
   github,
   winRef: () => mockWin,
   providerConfig,

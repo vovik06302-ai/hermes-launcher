@@ -15,7 +15,7 @@ const files = [
   'lib/api-keys.js',
   'lib/github.js',
   'lib/provider-registry.js',
-  'lib/launcher-update.js',
+  'lib/version.js',
   'lib/terminal.js',
   'lib/terminal-pool.js',
   'lib/task-queue.js',

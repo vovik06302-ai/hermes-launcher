@@ -112,7 +112,6 @@ const { handle } = registerIpcHandlers({
   terminal,
   modelCache,
   comparisonQueue,
-  updateManager: { check: (version, url) => services.updateLauncher(url, version) },
   github,
   winRef: () => win,
   providerConfig: require('./providers-config.json'),
