@@ -219,6 +219,12 @@
               <section class="github-panel" aria-labelledby="githubTitle">
                 <div class="row"><h2 id="githubTitle">GitHub</h2></div>
                 <div class="row btn-group">
+                  <button id="githubLoginBtn" type="button" class="primary">Войти через GitHub</button>
+                  <button id="githubAuthCheckBtn" type="button">Проверить подключение</button>
+                  <button id="githubLogoutBtn" type="button" class="danger" hidden>Выйти</button>
+                </div>
+                <span id="githubAccountStatus" class="hint" role="status">Проверка авторизации GitHub…</span>
+                <div class="row btn-group">
                   <button id="githubListBtn" type="button">Мои репозитории</button>
                   <button id="githubCloneBtn" type="button">Загрузить</button>
                   <button id="githubPullBtn" type="button">Получить</button>
@@ -227,7 +233,7 @@
                 <select id="githubRepoPicker" aria-label="Репозиторий GitHub">
                   <option value="">Выберите репозиторий…</option>
                 </select>
-                <span id="githubStatus" class="hint" role="status">Использует авторизацию GitHub CLI.</span>
+                <span id="githubStatus" class="hint" role="status">Управление репозиториями и синхронизация.</span>
               </section>
             </div>
           </details>

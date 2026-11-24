@@ -6,7 +6,37 @@
     return document.getElementById(id);
   }
 
+  async function refreshAuthStatus() {
+    const result = await root.HermesUI.call('githubAuthStatus');
+    const status = el('githubAccountStatus');
+    const login = el('githubLoginBtn');
+    const logout = el('githubLogoutBtn');
+    if (status) status.textContent = result.message || (result.authenticated ? 'GitHub подключён.' : 'GitHub не подключён.');
+    if (login) login.hidden = Boolean(result.authenticated);
+    if (logout) logout.hidden = !result.authenticated;
+    for (const id of ['githubListBtn', 'githubCloneBtn', 'githubPullBtn', 'githubPushBtn']) {
+      const button = el(id);
+      if (button) button.disabled = !result.authenticated;
+    }
+    return result;
+  }
+
+  async function login() {
+    const result = await root.HermesUI.call('githubLogin');
+    if (el('githubAccountStatus')) el('githubAccountStatus').textContent = result.message;
+    if (root.HermesUI.notify) root.HermesUI.notify.log(result.message);
+  }
+
+  async function logout() {
+    const result = await root.HermesUI.call('githubLogout');
+    await refreshAuthStatus();
+    if (el('githubStatus')) el('githubStatus').textContent = result.message;
+    if (root.HermesUI.notify) root.HermesUI.notify.log(result.message);
+  }
+
   async function refreshGitHubRepos() {
+    const auth = await refreshAuthStatus();
+    if (!auth.authenticated) throw new Error('Сначала войдите в GitHub.');
     const result = await root.HermesUI.call('githubList');
     const picker = el('githubRepoPicker');
     if (picker) {
@@ -69,6 +99,26 @@
   }
 
   function init() {
+    el('githubLoginBtn')?.addEventListener('click', () => {
+      login().catch(e => {
+        if (root.HermesUI.notify) root.HermesUI.notify.log(e.message, true);
+        if (el('githubAccountStatus')) el('githubAccountStatus').textContent = e.message;
+      });
+    });
+    el('githubAuthCheckBtn')?.addEventListener('click', () => {
+      refreshAuthStatus().catch(e => {
+        if (root.HermesUI.notify) root.HermesUI.notify.log(e.message, true);
+      });
+    });
+    el('githubLogoutBtn')?.addEventListener('click', () => {
+      logout().catch(e => {
+        if (root.HermesUI.notify) root.HermesUI.notify.log(e.message, true);
+      });
+    });
+    refreshAuthStatus().catch(e => {
+      if (el('githubAccountStatus')) el('githubAccountStatus').textContent = e.message;
+    });
+
     el('githubListBtn')?.addEventListener('click', () => {
       refreshGitHubRepos().catch(e => {
         if (root.HermesUI.notify) root.HermesUI.notify.log(e.message, true);
@@ -97,6 +147,9 @@
   const githubPanelModule = {
     refreshGitHubRepos,
     refreshGitHubStatus,
+    refreshAuthStatus,
+    login,
+    logout,
     clone,
     pull,
     push,
