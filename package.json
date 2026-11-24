@@ -91,7 +91,10 @@
       "package.json"
     ],
     "npmRebuild": false,
-    "electronDist": "node_modules/electron/dist"
+    "electronDist": "node_modules/electron/dist",
+    "portable": {
+      "artifactName": "Hermes-Launcher-Portable-${version}.${ext}"
+    }
   },
   "allowScripts": {
     "electron@31.7.7": true,
