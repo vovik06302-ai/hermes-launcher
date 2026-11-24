@@ -22,20 +22,10 @@ jobs:
           cache: npm
 
       - name: Verify release tag and package versions
-        shell: pwsh
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
         run: |
-          $tagVersion = "${{ github.ref_name }}".TrimStart('v')
-          $packageVersion = node -p "require('./package.json').version"
-          $lock = Get-Content package-lock.json -Raw | ConvertFrom-Json
-          $lockVersion = $lock.version
-          $rootLockVersion = $lock.packages.''.version
-
-          if ($tagVersion -ne $packageVersion) {
-            throw "Tag version ($tagVersion) does not match package.json ($packageVersion)"
-          }
-          if ($packageVersion -ne $lockVersion -or $packageVersion -ne $rootLockVersion) {
-            throw "package.json ($packageVersion), package-lock.json ($lockVersion) and packages[''] ($rootLockVersion) versions must match"
-          }
+          node -e "const p=require('./package.json'); const l=require('./package-lock.json'); const tag=process.env.RELEASE_TAG.replace(/^v/,''); if(tag!==p.version) throw new Error('Tag version '+tag+' does not match package.json '+p.version); if(p.version!==l.version || p.version!==l.packages[''].version) throw new Error('package.json, package-lock.json and packages[""] versions must match'); console.log('Release versions verified: '+p.version);"
 
       - name: Install dependencies
         run: npm ci
