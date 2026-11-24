@@ -46,21 +46,37 @@ jobs:
       - name: Packaged smoke test
         run: npm run test:packaged
 
-      - name: Build and publish Windows installer + portable
+      - name: Build Windows installer + portable
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          CSC_LINK: ${{ secrets.WINDOWS_CERTIFICATE_BASE64 }}
-          CSC_KEY_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
           DEBUG: electron-builder
         shell: pwsh
         run: |
-          foreach ($name in 'WIN_CSC_LINK','WIN_CSC_KEY_PASSWORD','CSC_LINK','CSC_KEY_PASSWORD') {
-            if ([string]::IsNullOrWhiteSpace([Environment]::GetEnvironmentVariable($name))) {
-              Remove-Item "Env:$name" -ErrorAction SilentlyContinue
-            }
-          }
-          npx electron-builder --win nsis portable --publish always
+          npx electron-builder --win nsis portable --publish never
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+          $tag = "v" + (node -p "require('./package.json').version")
+          gh release view $tag *> $null
+          if ($LASTEXITCODE -ne 0) {
+            gh release create $tag --title $tag --notes "Hermes Launcher $tag"
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          }
+
+          $assets = Get-ChildItem dist -File |
+            Where-Object { $_.Name -like '*.exe' -or $_.Name -like '*.blockmap' -or $_.Name -like 'latest*.yml' } |
+            Select-Object -ExpandProperty FullName
+          if (-not $assets) { throw "No Windows release assets were produced in dist/" }
+
+          $uploaded = $false
+          for ($attempt = 1; $attempt -le 4; $attempt++) {
+            gh release upload $tag @assets --clobber
+            if ($LASTEXITCODE -eq 0) {
+              $uploaded = $true
+              break
+            }
+            if ($attempt -lt 4) { Start-Sleep -Seconds (10 * $attempt) }
+          }
+          if (-not $uploaded) { throw "GitHub Release asset upload failed after 4 attempts" }
 
       - name: Upload build outputs for diagnostics
         if: always()
