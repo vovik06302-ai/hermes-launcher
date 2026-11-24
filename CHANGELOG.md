@@ -4,6 +4,12 @@ All notable changes to Hermes Launcher will be documented in this file.
 
 ## [Unreleased]
 
+## [1.0.22] - 2026-11-24
+
+### Changed
+- исправлен процесс публикации релиза: Windows-сборка теперь выпускает установщик NSIS и portable EXE в одном GitHub Release
+- добавлена обязательная проверка версии тега относительно package.json до сборки; версия package-lock.json синхронизирована с package.json
+
 ## [1.0.20] - 2026-11-12
 
 ### Changed
