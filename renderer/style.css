@@ -832,3 +832,6 @@ input[aria-invalid="true"] {
 @media (prefers-reduced-motion: reduce) {
   body, .theme-fx i, .theme-swatch::before, .primary { animation: none; }
 }
+
+
+.github-panel [hidden] { display: none !important; }
